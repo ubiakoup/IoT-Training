@@ -178,7 +178,22 @@ docker run nginx
 
 ---
 
-# Partie 5 — Commandes essentielles
+# Partie 5 — Création du réseau Docker (OBLIGATOIRE)
+
+Dans une architecture microservices, tous les conteneurs doivent communiquer entre eux.
+
+Nous allons créer un réseau Docker commun pour toute la stack IoT.
+
+## Créer le réseau
+
+```bash
+docker network create iiot-network
+```
+Vérifier
+```bash
+docker network ls
+```
+# Partie 6 — Commandes essentielles
 
 ---
 
@@ -188,6 +203,7 @@ docker ps -a
 docker images
 docker rm <container_id>
 docker rmi <image_id>
+docker network ls
 ```
 
 ---

@@ -118,8 +118,9 @@ docker build -t data-collector .
 ---
 
 ```bash
-docker run -d --name data-collector \
-  --network bridge \
+docker run -d \
+  --name data-collector \
+  --network iiot-network \
   data-collector
 ```
 
