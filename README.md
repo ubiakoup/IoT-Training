@@ -17,6 +17,9 @@ The goal is to build a production-ready architecture used in modern Industry 4.0
 
 ## Architecture
 
+<img width="4897" height="2892" alt="Architecture-project-IOT_01 drawio" src="https://github.com/user-attachments/assets/5556a8e9-d78a-4418-bf5e-c36583a0a747" />
+
+
 The system is structured into three main layers:
 
 ### OT Layer
