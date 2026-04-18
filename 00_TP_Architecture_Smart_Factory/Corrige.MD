@@ -88,13 +88,17 @@ Les données suivent le chemin suivant :
 
 Les données sont stockées localement dans **InfluxDB** (base de données time-series).
 
-Elles peuvent également être envoyées dans le **cloud** pour stockage long terme.
+Elles peuvent également être envoyées dans le **cloud** dans un Bucket S3 pour:
+* Archivage long terme
+* Audit / traçabilité
+* Analyse offline (Big Data / ML)
+* conformité (industrie, qualité, sécurité)
 
 ---
 
 ### 4. Où sont-elles visualisées ?
 
-Les données sont visualisées dans **Grafana**, sous forme de dashboards.
+Les données sont visualisées dans **Grafana**, sous forme de dashboards em local. 
 
 ---
 
