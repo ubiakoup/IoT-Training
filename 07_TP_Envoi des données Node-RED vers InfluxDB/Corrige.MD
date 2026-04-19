@@ -138,7 +138,7 @@ Accéder à :
 ```text id="influx-access"
 http://192.168.56.12:8086
 ```
-
+se connecter á influxdb avec les credentials définr dans la fichier .env.
 ---
 
 ## Data Explorer
@@ -149,6 +149,7 @@ Vérifier :
 * apparition des mesures
 * évolution des données
 
+![data-explorer](./img/data-explorer.png)
 ---
 
 # Réponses aux objectifs

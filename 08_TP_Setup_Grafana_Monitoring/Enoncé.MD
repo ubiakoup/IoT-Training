@@ -1,4 +1,4 @@
-# TP 08 - Setup Grafana (Monitoring & Visualisation)
+# TP 08 — Grafana : Monitoring & Visualisation des données IoT
 
 ---
 
@@ -6,24 +6,46 @@
 
 À la fin de ce TP, vous serez capable de :
 
-* Comprendre le rôle de Grafana
+* Comprendre le rôle de Grafana dans une architecture IoT
 * Déployer Grafana avec Docker
 * Connecter Grafana à InfluxDB
-* Créer des dashboards
-* Visualiser des données IoT en temps réel
+* Comprendre les requêtes Flux
+* Créer des dashboards temps réel
+* Structurer un monitoring industriel
+* Mettre en place des alertes simples
 
 ---
 
 ## Contexte
 
-Dans notre architecture :
+Dans notre architecture actuelle :
 
-* les données sont collectées (OPC-UA)
-* transportées (MQTT)
-* traitées (Node-RED)
-* stockées (InfluxDB)
+```text
+PLC → OPC UA → MQTT → Node-RED → InfluxDB
+````
 
-👉 Il reste maintenant à les **visualiser**
+👉 Les données sont maintenant :
+
+* collectées ✔
+* transportées ✔
+* traitées ✔
+* stockées ✔
+
+---
+
+## Problème
+
+👉 Les données ne sont pas encore exploitables visuellement
+
+❌ difficile à interpréter
+❌ pas de monitoring
+❌ pas d’alertes
+
+---
+
+## Solution
+
+👉 Utiliser **Grafana**
 
 ---
 
@@ -31,28 +53,29 @@ Dans notre architecture :
 
 Grafana permet de :
 
-* visualiser les données
-* créer des dashboards
-* surveiller les systèmes
-* déclencher des alertes
+* visualiser les données en temps réel
+* créer des dashboards industriels
+* surveiller l’état des systèmes
+* détecter des anomalies
+* générer des alertes
 
 ---
 
-# Partie 1 — Création du volume
+# Partie 1 — Création du volume (IMPORTANT)
 
 ---
 
-```bash id="v9c1f3"
+```bash
 docker volume create grafana-storage
 ```
 
 ---
 
-# Partie 2 — Lancer Grafana
+# Partie 2 — Déploiement Grafana
 
 ---
 
-```bash id="r7k2h1"
+```bash
 docker run -d \
   --name grafana \
   --network iiot-network \
@@ -64,29 +87,27 @@ docker run -d \
 
 ---
 
-# Partie 3 — Vérification
+## Vérification
 
----
-
-```bash id="c3m8k2"
+```bash
 docker ps
 ```
 
 ---
 
-# Partie 4 — Accès à Grafana
+# Partie 3 — Accès à Grafana
 
 ---
 
-Ouvrir dans le navigateur :
+Ouvrir dans votre navigateur :
 
-```text id="h7k2p1"
+```text
 http://192.168.56.12:3000
 ```
 
 ---
 
-## Connexion par défaut
+## Connexion
 
 * Username : admin
 * Password : admin
@@ -95,13 +116,13 @@ http://192.168.56.12:3000
 
 ---
 
-# Partie 5 — Ajouter InfluxDB comme Data Source
+# Partie 4 — Ajouter InfluxDB comme Data Source
 
 ---
 
 ## Étapes
 
-1. Aller dans **Settings → Data Sources**
+1. Aller dans **Connections → Data Sources**
 2. Cliquer sur **Add data source**
 3. Choisir **InfluxDB**
 
@@ -113,7 +134,7 @@ http://192.168.56.12:3000
 
 ### URL
 
-```text id="n3k7v1"
+```text
 http://influxdb:8086
 ```
 
@@ -121,140 +142,189 @@ http://influxdb:8086
 
 👉 Important :
 
-* utiliser le nom du conteneur
-* car on est dans le réseau Docker
+* utiliser le nom du conteneur (réseau Docker)
+* ne pas utiliser localhost
 
 ---
 
-### Authentification
+### Paramètres
 
-* Organization : `iiot`
-* Token : `my-super-token`
-* Default Bucket : `edge-GW`
-
----
-
-### Query Language
-
-👉 Flux (InfluxDB v2)
+* Query Language : Flux
+* Organisation : iiot
+* Token : (token InfluxDB valide)
+* Default Bucket : edge-GW
 
 ---
 
-## Sauvegarder
+## Sauvegarde
 
-Cliquer sur **Save & Test**
+Cliquer sur :
 
-👉 Résultat attendu : **Success**
+👉 **Save & Test**
 
 ---
 
-# Partie 6 — Créer un Dashboard
+## Résultat attendu
+
+```text
+Data source is working
+```
+
+---
+
+# Partie 5 — Création d’un Dashboard
 
 ---
 
 ## Étapes
 
 1. Aller dans **Dashboards → New Dashboard**
-2. Ajouter un panel
+2. Cliquer sur **Add new panel**
 
 ---
 
-## Exemple de requête
+## Exemple de requête Flux
 
-```text id="t9k3m2"
+```flux
 from(bucket: "edge-GW")
-  |> range(start: -1h)
+  |> range(start: -5m)
+  |> filter(fn: (r) => r._measurement == "plc1_temperature_motor")
+  |> aggregateWindow(every: 5s, fn: last)
 ```
 
 ---
 
-## Visualisation
+## Visualisations possibles
 
-* température
-* vibration
-* énergie
-
----
-
-# Partie 7 — Compréhension globale
+* Time series (recommandé)
+* Gauge
+* Bar chart
 
 ---
 
-## Flux complet
+# Partie 6 — Compréhension des requêtes
 
-```text id="g3k8m1"
-OPC-UA → MQTT → Node-RED → InfluxDB → Grafana
+---
+
+Une requête Flux permet de :
+
+* sélectionner une source de données
+* filtrer un capteur
+* définir une période
+* préparer l’affichage
+
+---
+
+# Partie 7 — Introduction à l’alerting
+
+---
+
+## Objectif
+
+👉 Détecter des anomalies automatiquement
+
+---
+
+## Exemple
+
+Créer une alerte si :
+
+```text
+température > 80°C
 ```
 
 ---
 
-👉 Grafana est la dernière couche (visualisation)
+👉 Grafana peut envoyer des notifications (email, etc.)
 
 ---
 
-# Analyse
+# Exercice
+
+
+## Exercice 1 — Dashboard multi-PLC (complet)
+
+Créer un dashboard structuré par systèmes industriels :
 
 ---
 
-## Exercice 1
+### 🔧 PLC1 — Motor System
 
-Quel est le rôle de Grafana ?
-
----
-
-## Exercice 2
-
-Pourquoi connecter Grafana à InfluxDB ?
+* temperature_motor
+* vibration_motor
+* motor_current
+* motor_speed
+* bearing_health
 
 ---
 
-## Exercice 3
+### 💧 PLC2 — Hydraulic System
 
-Pourquoi utiliser le réseau Docker ?
+* hydraulic_pressure
+* hydraulic_temp
+* flow_rate
+* oil_level
 
 ---
 
-## Exercice 4
+### ⚡ PLC3 — Energy Monitoring
 
-Quel est l’intérêt des dashboards ?
+* voltage
+* current
+* energy
+* power_factor
+
+---
+
+## Contraintes
+
+* un panel = une mesure
+* utiliser des Time series
+* organiser par PLC
+* nommer clairement les panels
+
+---
+
+## Export
+
+Exporter le dashboard au format JSON :
+
+1. Dashboard settings
+2. JSON Model
+3. Copier le contenu ou Exporter.
 
 ---
 
 # Résultat attendu
 
+---
+
 * Grafana fonctionnel
 * InfluxDB connecté
-* Dashboard affichant des données
+* dashboards complets
+* visualisation temps réel
+* export du Dashboard
 
 ---
 
 # Hints
 
-* vérifier port 3000
-* vérifier token
-* vérifier bucket
+---
+
+* vérifier docker ps
 * vérifier réseau Docker
+* vérifier token InfluxDB
+* vérifier bucket
+* vérifier requêtes Flux
 
 ---
 
 # Vision globale
 
-```text id="k9p2l1"
-Data → InfluxDB → Grafana → Visualisation
+---
+
+```text
+PLC → OPC UA → MQTT → Node-RED → InfluxDB → Grafana
 ```
-
----
-
-# Conclusion
-
-Grafana permet de rendre les données compréhensibles.
-
-👉 C’est la couche visible du système IoT.
-
----
-
-## Prochaine étape
-
-👉 Déploiement global avec Docker Compose
 
 ---
