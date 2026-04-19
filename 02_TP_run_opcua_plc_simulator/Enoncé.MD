@@ -1,199 +1,168 @@
-# TP 01 - Setup de l’environnement OT et simulation OPC-UA
-
----
+# TP 2 — Simulation OT avec OPC-UA (dans la stack Vagrant)
 
 ## Objectifs pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
-* Installer un environnement Python propre
-* Créer et utiliser un environnement virtuel
-* Installer des dépendances Python
-* Comprendre le rôle d’un serveur OPC-UA
-* Lancer un simulateur de PLC
+- Se connecter à une machine virtuelle via SSH  
+- Naviguer dans un environnement Linux  
+- Créer et utiliser un environnement virtuel Python  
+- Installer des dépendances avec un fichier requirements.txt  
+- Comprendre le rôle d’un serveur OPC-UA  
+- Lancer un simulateur de PLC  
 
 ---
 
 ## Contexte
 
-Dans une architecture IoT industrielle, la couche OT (Operational Technology) représente les machines et les capteurs.
+Dans un projet IoT industriel, la couche OT (Operational Technology) représente les machines physiques (capteurs, automates, PLC).
 
-Dans un environnement réel, ces machines sont des automates industriels (PLC).
+Dans notre cas, la stack Vagrant est déjà déployée et contient :
 
-Dans ce TP, nous allons simuler ces automates à l’aide d’un programme Python qui expose des données via le protocole OPC-UA.
+- un serveur Ansible  
+- un serveur OPC UA / PLC (simulation)  
+- un serveur Edge  
 
----
-
-## Installation de Python (si nécessaire)
-
-Si Python n’est pas installé sur votre machine, suivez les instructions ci-dessous.
+Dans ce TP, nous allons travailler sur le serveur OPC UA pour simuler un automate industriel.
 
 ---
 
-### Sur Windows (méthode recommandée)
+## Informations réseau
 
-1. Ouvrir le Microsoft Store
-2. Rechercher **Python 3**
-3. Installer la version proposée (ex : Python 3.11 ou plus)
+Serveur OPC UA / PLC :
+
+IP : 192.168.56.11
 
 ---
 
-### Alternative via PowerShell (Windows)
+## Accès à la machine OPC UA
+
+### Méthode 1 — Terminal (recommandé)
 
 ```bash
-winget install Python.Python.3
+cd iot_stack_ubuntu22
+vagrant ssh iot-opcua-plc-simulator
+````
+
+### Méthode 2 — SSH direct (MobaXterm / Terminal)
+
+```bash
+ssh vagrant@192.168.56.11
+```
+
+Clé privée à utiliser :
+
+.vagrant/machines/iot-opcua-plc-simulator/virtualbox/private_key
+
+---
+
+## Accès au projet
+
+```bash
+cd /home/vagrant/projects
+ls
 ```
 
 ---
 
-### Vérification de l’installation
+## Étapes
+
+### 1. Vérifier Python
 
 ```bash
-python --version
+python3 --version
 ```
 
-> Si la commande `python` ne fonctionne pas, essayez avec `py`
-
----
-
-### Sur Linux
+### 2. Vérifier pip
 
 ```bash
-sudo apt update
-sudo apt install python3 python3-pip python3-venv
+python3 -m pip --version
 ```
 
----
-
-### Sur macOS
+### 3. Créer un environnement virtuel
 
 ```bash
-brew install python
+python3 -m venv venv
 ```
 
----
-
-## Instructions
-
----
-
-### 1. Vérification de Python
-
-```bash
-python --version
-```
-
----
-
-### 2. Vérification de pip
-
-```bash
-python -m pip --version
-```
-
----
-
-### 3. Création d’un environnement virtuel
-
-```bash
-python -m venv venv
-```
-
----
-
-### 4. Activation de l’environnement virtuel
-
-#### Windows
-
-```bash
-.\venv\Scripts\Activate.ps1
-```
-
-#### Linux / Mac
+### 4. Activer l’environnement virtuel
 
 ```bash
 source venv/bin/activate
 ```
 
----
-
-### 5. Installation des dépendances
+### 5. Créer le fichier requirements.txt
 
 ```bash
-python -m pip install --upgrade pip
-python -m pip install opcua cryptography
+nano requirements.txt
+```
+
+Contenu du fichier :
+
+```txt
+opcua
+cryptography
+```
+
+### 6. Installer les dépendances
+
+```bash
+python3 -m pip install --upgrade pip
+python3 -m pip install -r requirements.txt
+```
+
+### 7. Vérifier les installations
+
+```bash
+python3 -m pip list
+```
+
+### 8. Lancer le simulateur OPC-UA
+
+```bash
+python3 opcua_plc_simulation.py
 ```
 
 ---
 
-### 6. Vérification des installations
+## Questions de compréhension
 
-```bash
-python -m pip list
-```
-
----
-
-### 7. Lancement du simulateur PLC
-
-Un script Python est fourni dans le projet.
-
-```bash
-python opcua_plc_simulation.py
-```
-
----
-
-## Analyse
-
-Répondez aux questions suivantes :
-
----
-
-### Exercice 1
-
-Pourquoi utilise-t-on un environnement virtuel ?
-
----
-
-### Exercice 2
-
-Quel est le rôle de la bibliothèque OPC-UA dans ce projet ?
-
----
-
-### Exercice 3
-
-Que représente le simulateur PLC dans l’architecture globale ?
-
----
-
-### Exercice 4
-
-Pourquoi simuler un environnement OT plutôt que d’utiliser de vraies machines ?
+* Pourquoi utilise-t-on un environnement virtuel ?
+* Quel est le rôle de OPC-UA dans ce projet ?
+* Que représente le simulateur PLC dans une architecture IoT ?
+* Pourquoi simuler un environnement industriel ?
 
 ---
 
 ## Résultat attendu
 
-À la fin de ce TP :
-
-* L’environnement Python est correctement configuré
-* Le simulateur OPC-UA fonctionne
-* Vous comprenez le rôle de la couche OT
+* Connexion SSH fonctionnelle
+* Environnement Python opérationnel
+* Dépendances installées
+* Serveur OPC-UA lancé
 
 ---
 
 ## Bonnes pratiques
 
 * Toujours utiliser un environnement virtuel
-* Installer les dépendances avec `python -m pip`
 * Ne jamais installer les dépendances globalement
+* Utiliser python3 -m pip
+* Travailler dans /home/vagrant/projects
 
 ---
 
-## Note importante
+## En cas d’erreur
 
-Si une erreur liée à `pip` ou à l’environnement virtuel apparaît, il est recommandé de supprimer et recréer l’environnement virtuel.
+```bash
+rm -rf venv
+```
+
+Puis recommencer les étapes.
 
 ---
+
+Vous venez de simuler un environnement OT industriel.
+
+```
+```

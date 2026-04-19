@@ -163,7 +163,7 @@ thread.start()
 
 server.start()
 
-print("🚀 OPC UA Server started : opc.tcp://localhost:4840")
+print("🚀 OPC UA Server started : opc.tcp://192.168.56.11:4840")
 print("Commands: n = normal | f = failure | q = stop")
 
 # ===============================

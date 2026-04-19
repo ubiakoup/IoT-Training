@@ -45,6 +45,7 @@ def connect_mqtt():
 
 
 mqtt_client = connect_mqtt()
+mqtt_client.loop_start()
 
 # ====================================
 # OPC UA connection
@@ -105,7 +106,14 @@ class SubHandler:
 
                         topic = f"factory/{plc}/{tag}"
 
-                        mqtt_client.publish(topic, val)
+                        payload = {
+                            "plc": plc,
+                            "tag": tag,
+                            "value": val,
+                            "timestamp": time.time()
+                        }
+
+                        mqtt_client.publish(topic, json.dumps(payload))                       
 
                         logging.info(f"Published -> {topic}: {val}")
 

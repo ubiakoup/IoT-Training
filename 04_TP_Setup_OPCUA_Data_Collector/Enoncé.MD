@@ -1,4 +1,4 @@
-# TP 04 - OPC-UA Client & Data Collector (Containerisé)
+# TP 04 — OPC-UA Client & Data Collector (Containerisé)
 
 ---
 
@@ -6,116 +6,131 @@
 
 À la fin de ce TP, vous serez capable de :
 
-* Comprendre le rôle du Data Collector
-* Lire des données OPC-UA
-* Publier des données vers MQTT
-* Conteneuriser une application Python
-* Construire et exécuter une image Docker
+- Comprendre le rôle d’un Data Collector dans une architecture IIoT
+- Lire des données depuis un serveur OPC UA
+- Publier des données vers un broker MQTT
+- Comprendre la structure d’une application Python industrielle
+- Comprendre la logique de containerisation avec Docker
 
 ---
 
 ## Contexte
 
-Dans une architecture IoT moderne :
+Dans une architecture IoT industrielle :
 
-* les applications tournent dans des conteneurs
-* l’Edge Gateway exécute plusieurs services
+- les machines (PLC) exposent leurs données via OPC UA
+- un service intermédiaire (Data Collector) récupère ces données
+- ces données sont ensuite envoyées vers MQTT
 
-👉 Ici, nous allons déployer notre Data Collector dans un conteneur Docker.
+👉 Ce Data Collector est généralement exécuté sur un Edge Gateway.
 
 ---
 
 # Architecture
 
 ```text
-OPC-UA → Data Collector (Docker) → MQTT
+OPC-UA → Data Collector → MQTT
+````
+
+---
+
+# ⚠️ Étape 0 — Réseau Docker
+
+verifier si le réseau Docker :
+
+```bash
+docker network ls
 ```
 
 ---
 
-# Partie 1 — Structure du projet
+# Partie 1 — Mise en place du projet
+
+Créer un dossier de travail :
+
+```bash
+mkdir data-collector
+cd data-collector
+```
 
 ---
+
+# Partie 2 — Création des fichiers
 
 Créer les fichiers suivants :
 
 ```bash
-data_collector.py
-requirements.txt
-Dockerfile
-config.yml
+touch data_collector.py
+touch requirements.txt
+touch Dockerfile
+touch config.yml
 ```
 
 ---
 
-# Partie 2 — requirements.txt
+# Partie 3 — Travail demandé
 
-```text
-opcua
-paho-mqtt
-cryptography
-PyYAML
-```
+Dans ce TP, vous allez **éditer et compléter ces fichiers**.
+
+👉 L’objectif est de comprendre le rôle de chaque composant.
 
 ---
 
-# Partie 3 — Dockerfile
+## 🔹 1. data_collector.py
+
+Éditer ce fichier pour :
+
+* se connecter au serveur OPC UA
+* lire des données (nodes)
+* se connecter au broker MQTT
+* publier les données
 
 ---
 
-```dockerfile
-FROM python:3.11-slim
+## 🔹 2. requirements.txt
 
-WORKDIR /app
+Compléter avec les dépendances nécessaires :
 
-COPY requirements.txt .
-RUN pip install --no-cache-dir -r requirements.txt
-
-COPY data_collector.py .
-
-CMD ["python", "data_collector.py"]
-```
+* OPC UA
+* MQTT
+* lecture YAML
 
 ---
 
-## Explication
-
-* `FROM` → image de base
-* `WORKDIR` → dossier de travail
-* `COPY` → copie des fichiers
-* `RUN` → installation dépendances
-* `CMD` → commande de démarrage
-
----
-
-# Partie 4 — Configuration (config.yml)
+## 🔹 3. config.yml
 
 Configurer :
 
-```yaml
-opcua:
-  url: "opc.tcp://192.168.X.X:4840"
-
-mqtt:
-  broker: mosquitto
-  port: 1883
-```
+* l’adresse du serveur OPC UA
+* les paramètres MQTT
 
 ---
 
-# Partie 5 — Build de l’image Docker
+## 🔹 4. Dockerfile
+
+Créer un Dockerfile permettant :
+
+* d’installer les dépendances
+* de copier uniquement les fichiers nécessaires
+* de lancer le script
 
 ---
+
+# ⚠️ Contraintes importantes
+
+* Ne pas utiliser `COPY . .`
+* Copier uniquement les fichiers nécessaires
+* Respecter une structure propre
+
+---
+
+# Partie 4 — Build de l’image
 
 ```bash
 docker build -t data-collector .
 ```
 
----
-
-# Partie 6 — Lancer le conteneur
-
----
+# Partie 5 — Lancer le Data Collector
 
 ```bash
 docker run -d \
@@ -126,17 +141,7 @@ docker run -d \
 
 ---
 
-## Important
-
-Si MQTT est dans Docker :
-
-👉 utiliser le même réseau
-
----
-
 # Partie 7 — Vérification
-
----
 
 ```bash
 docker logs data-collector
@@ -144,7 +149,7 @@ docker logs data-collector
 
 ---
 
-## Résultat attendu
+# Résultat attendu
 
 ```text
 Connected to OPC UA Server
@@ -154,85 +159,41 @@ Published -> factory/plc1/temperature_motor: 45.2
 
 ---
 
-# Partie 8 — Concepts clés
-
----
-
-## Pourquoi containeriser ?
-
-* reproductibilité
-* portabilité
-* isolation
-
----
-
-## Avantage
-
-👉 même comportement partout (dev / prod)
-
----
-
 # Analyse
 
 ---
 
 ## Exercice 1
 
-Quel est le rôle du Data Collector ?
+Quel est le rôle du Data Collector dans cette architecture ?
 
 ---
 
 ## Exercice 2
 
-Pourquoi containeriser cette application ?
+Pourquoi utilise-t-on un fichier de configuration (config.yml) ?
 
 ---
+
 
 ## Exercice 3
 
-Que fait le Dockerfile ?
-
----
-
-## Exercice 4
-
-Pourquoi utiliser MQTT après OPC-UA ?
-
----
-
-# Résultat attendu
-
-* image Docker créée
-* conteneur fonctionnel
-* données envoyées vers MQTT
+Quel est le rôle de MQTT après OPC UA ?
 
 ---
 
 # Hints
 
-* vérifier IP OPC-UA
-* vérifier MQTT
-* vérifier logs Docker
-* vérifier réseau Docker
+* vérifier l’adresse OPC UA (192.168.56.11)
+* vérifier le réseau Docker
+* vérifier les logs
+* vérifier que MQTT est actif
 
 ---
 
 # Vision globale
 
 ```text
-OT → Docker → MQTT
+Machine → OPC-UA → Data Collector → MQTT → Applications
 ```
 
----
-
-# Conclusion
-
-Le Data Collector est maintenant containerisé.
-
-👉 Vous êtes maintenant dans une architecture IoT moderne.
-
-Prochaine étape :
-
-👉 Déployer MQTT Broker (Mosquitto)
-
----
