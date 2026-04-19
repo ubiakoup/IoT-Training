@@ -81,7 +81,7 @@ docker ps
 Ouvrir dans le navigateur :
 
 ```text id="h7k2p1"
-http://localhost:3000
+http://192.168.56.12:3000
 ```
 
 ---
