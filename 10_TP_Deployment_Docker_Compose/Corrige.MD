@@ -18,7 +18,7 @@ infrastructure automatisée ✅
 
 ---
 
-# ⚙️ 1 — Fichier `.env`
+# 1 — Fichier `.env`
 
 ---
 
