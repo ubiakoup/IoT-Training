@@ -1,33 +1,31 @@
-# Corrigé — TP 06 Node-RED : Traitement des données IoT (MQTT → Processing)
+# ✅ Corrigé — TP 05 : Node-RED — Traitement des données IoT (MQTT → Processing)
 
 ---
 
-## Compréhension globale
+## 🧠 Compréhension globale
 
-Dans ce TP, nous avons introduit Node-RED comme moteur de traitement des données.
+Dans ce TP, nous avons introduit **Node-RED** comme moteur de traitement des données dans une architecture IIoT.
 
-Son rôle :
+👉 Son rôle principal :
 
-* recevoir les données depuis MQTT
-* les nettoyer
-* les transformer
-* les préparer pour stockage
+- Recevoir les données depuis MQTT  
+- Nettoyer les données  
+- Transformer les messages  
+- Préparer un format exploitable pour le stockage  
 
 ---
 
-## Position dans l’architecture
+## 🏗️ Position dans l’architecture
 
 ```text
-PLC → OPC UA → Data Collector → MQTT → Node-RED
+PLC → OPC UA → Data Collector → MQTT → Node-RED → Processing
 ````
 
-👉 Node-RED transforme les données avant leur stockage.
+👉 Node-RED agit comme une **couche de transformation (Data Processing Layer)**.
 
 ---
 
-# Étape 1 — Déploiement
-
----
+# 🚀 Étape 1 — Déploiement
 
 ```bash
 docker run -d \
@@ -41,7 +39,7 @@ docker run -d \
 
 ---
 
-## Vérification
+## 🔍 Vérification
 
 ```bash
 docker ps
@@ -49,7 +47,7 @@ docker ps
 
 ---
 
-## Accès
+## 🌐 Accès
 
 ```text
 http://192.168.56.12:1880
@@ -57,48 +55,46 @@ http://192.168.56.12:1880
 
 ---
 
-# Étape 2 — Création du flow
+# 🔧 Étape 2 — Création du flow
 
 ---
 
-## Flow attendu
+## 🎯 Flow attendu
 
 ![flow](./img/flow.png)
 
 ```text
-MQTT IN → Function → DEBUG
+MQTT IN → Function → Debug
 ```
 
 ---
 
-## Configuration MQTT
+## 📡 Configuration MQTT
 
-![mqtt-in](./img/MQTT-in.png) 
+![mqtt-in](./img/MQTT-in.png)
 
 ![mqtt-broker](./img/mqtt-broker.png)
 
-* Broker : mqtt-broker
-* Port : 1883
+* **Broker** : `mqtt-broker`
+* **Port** : `1883`
 
 ---
 
-## Topic
+## 📥 Topic
 
 ```text
 factory/+/+
 ```
 
----
-
-👉 Permet de recevoir toutes les données du système
+👉 Permet de recevoir toutes les données du système.
 
 ---
 
-# Étape 3 — Fonction de traitement (IMPORTANT)
+# 🧠 Étape 3 — Fonction de traitement (IMPORTANT)
 
 ---
 
-## Code complet
+## 💻 Code complet (version robuste industrielle)
 
 ```javascript
 let parts = msg.topic.split("/");
@@ -108,7 +104,7 @@ if (parts.length < 3) return null;
 let data;
 let value;
 
-// parsing intelligent
+// Parsing intelligent
 if (typeof msg.payload === "string") {
     try {
         data = JSON.parse(msg.payload);
@@ -119,49 +115,39 @@ if (typeof msg.payload === "string") {
     data = msg.payload;
 }
 
-// ignorer les timestamps
+// Filtrage
 if (data.tag === "time") return null;
 
-// extraction
+// Extraction
 let machine = data.plc || parts[1];
 let sensor = data.tag || parts[2];
 
-// récupération brute
+// Valeur brute
 let raw = data.value;
 
-// conversion industrielle
-
-// cas 1 → nombre direct
+// Conversion industrielle
 if (typeof raw === "number") {
     value = raw;
-}
-
-// cas 2 → string (ex: "45,2")
-else if (typeof raw === "string") {
+} else if (typeof raw === "string") {
     raw = raw.replace(",", ".").trim();
     value = Number(raw);
-}
-
-// fallback
-else {
+} else {
     value = Number(raw);
 }
 
-// validation
+// Validation
 if (isNaN(value)) {
     node.warn("Invalid numeric value: " + JSON.stringify(data));
     return null;
 }
 
-// construction measurement
+// Construction
 msg.measurement = machine + "_" + sensor;
 
-// payload final
 msg.payload = {
     value: value
 };
 
-// timestamp
 msg.timestamp = data.timestamp;
 
 return msg;
@@ -169,7 +155,7 @@ return msg;
 
 ---
 
-# Explication détaillée (TRÈS IMPORTANT)
+# 🔍 Explication détaillée (TRÈS IMPORTANT)
 
 ---
 
@@ -197,10 +183,10 @@ Résultat :
 
 Le message peut être :
 
-* string JSON
-* objet déjà parsé
+* JSON string
+* Objet déjà parsé
 
-👉 On gère les deux cas.
+👉 Le code gère les deux cas.
 
 ---
 
@@ -210,35 +196,23 @@ Le message peut être :
 if (data.tag === "time") return null;
 ```
 
-👉 On ignore les timestamps inutiles
+👉 On ignore les messages inutiles.
 
 ---
 
-## 4. Extraction des données
+## 4. Extraction
 
-On récupère :
-
-* machine → plc1
-* capteur → temperature_motor
-* valeur → 45.2
+* machine → `plc1`
+* capteur → `temperature_motor`
+* valeur → `45.2`
 
 ---
 
 ## 5. Conversion en nombre (CRITIQUE)
 
-Pourquoi ?
+👉 MQTT transporte souvent des strings.
 
-👉 MQTT transporte des strings ou des données brutes
-
-👉 mais InfluxDB et les calculs nécessitent des nombres
-
----
-
-Cas gérés :
-
-* number → OK
-* string → converti
-* fallback → Number()
+👉 Les systèmes aval (InfluxDB, analytics) exigent des **nombres**.
 
 ---
 
@@ -248,17 +222,17 @@ Cas gérés :
 isNaN(value)
 ```
 
-👉 empêche les erreurs en base de données
+👉 Empêche l’injection de données invalides.
 
 ---
 
-## 7. Construction du measurement
+## 7. Measurement
 
-```javascript
+```text
 plc1_temperature_motor
 ```
 
-👉 format compatible InfluxDB
+👉 Format standard time-series.
 
 ---
 
@@ -271,150 +245,254 @@ plc1_temperature_motor
   "timestamp": 1710000000
 }
 ```
-## 9. Deploiement du flow
-Aprés de deploiement du flow on devrait avoir un resulat propre comme ceci:
-
-![depoiement](./img/deploiement.png)
 
 ---
 
-# Réponses aux exercices
+## 9. Déploiement du flow
+
+Après déploiement :
+
+![deploiement](./img/deploiement.png)
 
 ---
 
-## Exercice 1 — Rôle Node-RED
-
-* traitement
-* transformation
-* orchestration
-
-👉 cœur logique de l’Edge
+# 📊 Partie 4 — Dashboard
 
 ---
 
-## Exercice 2 — Pourquoi transformer ?
+## 🧩 Installation (GUI Node-RED)
 
-* données brutes inutilisables
-* normalisation nécessaire
-* préparation pour stockage
+* Menu (☰)
+* **Manage Palette**
+* Onglet **Install**
+* Rechercher :
 
----
-
-## Exercice 3 — MQTT IN
-
-* se connecte au broker
-* reçoit les messages
-* injecte dans le flow
+```
+@flowfuse/node-red-dashboard
+```
 
 ---
 
-## Exercice 4 — Function
+## 🏗️ Organisation
 
-* transforme les données
-* applique la logique métier
-* nettoie les données
+👉 Bonne pratique :
 
----
-
-## Exercice 5 — Pourquoi convertir en nombre ?
-
-👉 essentiel car :
-
-* bases de données → types stricts
-* calculs impossibles avec string
-* évite erreurs analytiques
+**1 page = 1 système**
 
 ---
 
-# Problèmes fréquents
+### PLC1 — Motor System
+
+![page1](./img/page1.png)
 
 ---
 
-## 1. Aucune donnée
+### PLC2 — Hydraulic System
 
-* vérifier MQTT
-* vérifier topic
-* vérifier Data Collector
+![page2](./img/page2.png)
 
 ---
 
-## 2. Payload incorrect
+### PLC3 — Energy System
 
-👉 problème JSON
-
-Solution :
-
-* vérifier JSON.parse
-* afficher msg.payload
+![page3](./img/page3.png)
 
 ---
 
-## 3. Valeur NaN
+## 🌐 Accès
 
-👉 problème conversion
-
-Solution :
-
-* vérifier replace(",", ".")
-* vérifier format
+```text
+http://192.168.56.12:1880/dashboard
+```
 
 ---
 
-## 4. Node-RED ne reçoit rien
+## 📈 Exemple — Température moteur (PLC1)
+
+👉 Topic :
+
+```text
+factory/plc1/temperature_motor
+```
+
+👉 Function utilisée :
+
+```javascript
+let value = msg.payload.value;
+
+if (value === undefined) return null;
+
+value = Number(value);
+
+if (isNaN(value)) return null;
+
+msg.payload = value;
+
+return msg;
+```
+
+---
+
+## Résultat attendu
+
+![dashboard_motor_system](./img/dashboard_motor_system.png)
+
+👉 Visualisation en temps réel des données industrielles.
+
+---
+
+# 📦 Export du flow (IMPORTANT)
+
+---
+
+## Étapes
+
+* Menu (☰)
+* Export
+* Clipboard
+* Copier le flow complet
+
+---
+
+## 📁 Stockage (DevOps ready)
+
+```text
+Smart-factory-iot-edge-to-cloud/
+ └── 05_TP_Setup_NodeRED_Data_Processing/
+      └── flow/
+           └── flows.json
+```
+
+---
+
+👉 Le flow final est versionné et réutilisable.
+
+---
+
+# 🧠 Réponses aux exercices
+
+---
+
+## ✅ Exercice 1 — Rôle de Node-RED
+
+* Traitement
+* Transformation
+* Orchestration
+
+👉 Cœur logique de l’Edge.
+
+---
+
+## ✅ Exercice 2 — Pourquoi transformer ?
+
+* Données brutes inutilisables
+* Normalisation
+* Préparation au stockage
+
+---
+
+## ✅ Exercice 3 — MQTT IN
+
+* Connexion broker
+* Réception messages
+* Injection dans le flow
+
+---
+
+## ✅ Exercice 4 — Function
+
+* Logique métier
+* Transformation
+* Nettoyage
+
+---
+
+## ✅ Exercice 5 — Conversion en nombre
+
+👉 Indispensable :
+
+* Types stricts en base
+* Calculs possibles
+* Évite erreurs
+
+---
+
+# ⚠️ Problèmes fréquents
+
+---
+
+## ❌ Aucune donnée
+
+* Vérifier MQTT
+* Vérifier topic
+* Vérifier Data Collector
+
+---
+
+## ❌ Payload incorrect
+
+* Vérifier JSON
+* Debug `msg.payload`
+
+---
+
+## ❌ Valeur NaN
+
+* Vérifier format
+* Vérifier conversion
+
+---
+
+## ❌ Aucun message
 
 ```bash
 docker ps
 ```
 
-👉 vérifier mqtt-broker
+👉 Vérifier `mqtt-broker`
 
 ---
 
-## 5. Problème réseau
+## ❌ Problème réseau
 
 ```bash
 docker network inspect iiot-network
 ```
 
-👉 node-red et mqtt doivent être présents
-
 ---
 
-# Architecture finale
-
----
+# 🏗️ Architecture finale
 
 ```text
-PLC → OPC UA → Data Collector → MQTT → Node-RED → Processing
+PLC → OPC UA → Data Collector → MQTT → Node-RED → Processing → Stockage
 ```
 
 ---
 
-👉 Node-RED prépare les données pour :
+👉 Données prêtes pour :
 
 * InfluxDB
 * Grafana
 
 ---
 
-# Conclusion
+# 🏁 Conclusion
 
 Dans ce TP, vous avez :
 
-* déployé Node-RED
-* connecté MQTT
-* traité les données
-* construit un pipeline industriel
+* Déployé Node-RED
+* Connecté MQTT
+* Traité des données industrielles
+* Construit un pipeline IoT Edge
 
 ---
 
-👉 Vous avez maintenant un pipeline IoT complet côté Edge.
+👉 Vous avez maintenant une **brique industrielle clé**.
 
 ---
 
-## Prochaine étape
+## 🔜 Prochaine étape
 
-👉 Stockage des données avec InfluxDB
+👉 Intégration avec **InfluxDB** + **Grafana**
 
 ---
-

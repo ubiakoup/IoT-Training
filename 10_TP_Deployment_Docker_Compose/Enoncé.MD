@@ -1,322 +1,294 @@
-# TP 10 - Déploiement complet avec Docker Compose
+# ✅ TP 10 — Industrialisation avec Docker Compose & Provisioning automatique
 
 ---
 
-## Objectifs pédagogiques
+## 🎯 Objectifs pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
-* Déployer une architecture IoT complète avec Docker Compose
-* Utiliser des variables d’environnement
-* Gérer des secrets de manière sécurisée
-* Comprendre les healthchecks
-* Orchestrer plusieurs services
+* Concevoir une architecture IoT complète avec Docker Compose
+* Automatiser le déploiement de tous les services
+* Comprendre le rôle du provisioning (Grafana, InfluxDB, Node-RED)
+* Déployer une plateforme IIoT en une seule commande
 
 ---
 
-## Contexte
+## 🧠 Contexte
 
-Jusqu’à présent :
+Jusqu’ici, vous avez mis en place :
 
-* chaque service était lancé manuellement
-* la configuration était fragmentée
+* MQTT ✔
+* Node-RED ✔
+* InfluxDB ✔
+* Grafana ✔
+* Alerting ✔
 
-👉 En environnement réel, on automatise tout avec Docker Compose.
+👉 MAIS toutes ces configurations ont été faites **manuellement**
 
 ---
 
-# Architecture finale
+## ❌ Problème
 
-```text id="x1k9p2"
-OPC-UA → MQTT → Node-RED → InfluxDB → Grafana
+* déploiement long
+* non reproductible
+* erreurs humaines possibles
+
+---
+
+## ✅ Objectif du TP
+
+👉 Construire une architecture **automatisée et industrialisée**
+
+```text
+PLC → OPC UA → MQTT → Node-RED → InfluxDB → Grafana
 ```
 
 ---
 
-# Partie 1 — Fichier `.env`
+# 🏗️ Partie 1 — Structuration du projet
 
 ---
+
+## 🎯 Objectif
+
+Organiser correctement les fichiers pour permettre le provisioning automatique.
+
+---
+
+## À faire
+
+Créer l’arborescence suivante :
+
+```bash
+10_TP_Deployment_Docker_Compose/
+```
+
+Puis organiser :
+
+* un dossier `grafana/provisioning`
+* un dossier `grafana/dashboards`
+* un dossier `node-red`
+* un dossier `secrets`
+
+---
+
+## Question
+
+👉 Pourquoi structurer les fichiers avant Docker Compose ?
+
+---
+
+# ⚙️ Partie 2 — Configuration InfluxDB
+
+---
+
+## 🎯 Objectif
+
+Automatiser l’initialisation de :
+
+* organisation
+* bucket
+* token
+
+---
+
+## À faire
 
 Créer un fichier :
 
-```bash id="c2m8k1"
-nano .env
+```bash
+.env
 ```
 
 ---
 
-## Contenu
+## Question
 
-```env id="z4k7p2"
-DOCKER_INFLUXDB_INIT_MODE=setup
-DOCKER_INFLUXDB_INIT_USERNAME=admin
-DOCKER_INFLUXDB_INIT_PASSWORD=admin123
-DOCKER_INFLUXDB_INIT_ORG=iiot
-DOCKER_INFLUXDB_INIT_BUCKET=edge-GW
-INFLUXDB_TOKEN=my-super-token
+👉 Pourquoi ne pas configurer InfluxDB à la main ?
+
+---
+
+# 🔐 Partie 3 — Gestion des secrets
+
+---
+
+## 🎯 Objectif
+
+Sécuriser le token InfluxDB
+
+---
+
+## À faire
+
+Créer un fichier :
+
+```bash
+secrets/influx_token.txt
 ```
 
 ---
 
-# Partie 2 — Gestion des secrets (optionnel mais recommandé)
+## Question
+
+👉 Pourquoi utiliser un secret au lieu d’une variable classique ?
 
 ---
 
-Créer le dossier :
+# ⚙️ Partie 4 — Création du Docker Compose
 
-```bash id="p8k2m3"
-mkdir -p secrets
+---
+
+## 🎯 Objectif
+
+Créer un fichier :
+
+```bash
+docker-compose.yml
 ```
 
 ---
 
-Créer le fichier :
+## Contraintes
 
-```bash id="y2k9p1"
-nano secrets/influx_token.txt
+Votre docker-compose doit contenir :
+
+---
+
+### 🔹 MQTT
+
+* image Mosquitto
+* réseau commun
+* port 1883
+
+---
+
+### 🔹 InfluxDB
+
+* initialisation via `.env`
+* volume pour persistance
+* healthcheck
+
+---
+
+### 🔹 Grafana
+
+* connexion à InfluxDB
+* provisioning automatique :
+
+  * datasource
+  * dashboards
+  * alertes
+* configuration SMTP
+
+---
+
+### 🔹 Node-RED
+
+* connecté à MQTT et InfluxDB
+* chargement automatique du flow
+
+---
+
+### 🔹 Data Collector
+
+* connecté à MQTT
+* utilisation du fichier config.yml
+
+---
+
+### 🔹 Réseau
+
+* réseau Docker unique
+
+---
+
+## Question
+
+👉 Pourquoi tous les services doivent être sur le même réseau ?
+
+---
+
+# 🚀 Partie 5 — Déploiement
+
+---
+
+## Lancer l’infrastructure :
+
+```bash
+docker compose up -d
 ```
 
 ---
 
-## Contenu
+## Vérifier :
 
-```text id="u7k3p1"
-my-super-token
+* les conteneurs sont UP
+* les services sont accessibles
+
+---
+
+# 🧪 Partie 6 — Validation
+
+---
+
+## Vérifier :
+
+### Node-RED
+
+👉 interface accessible
+
+### InfluxDB
+
+👉 bucket existant
+
+### Grafana
+
+👉 datasource configurée automatiquement
+👉 dashboards chargés
+👉 alertes présentes
+
+---
+
+# 🧠 Analyse
+
+---
+
+## Question 1
+
+Pourquoi Docker Compose est indispensable dans un projet IoT ?
+
+---
+
+## Question 2
+
+Quel est l’intérêt du provisioning Grafana ?
+
+---
+
+## Question 3
+
+Pourquoi automatiser toute l’infrastructure ?
+
+---
+
+# ✅ Résultat attendu
+
+---
+
+✔ plateforme déployée en 1 commande
+✔ aucune configuration manuelle
+✔ dashboards disponibles
+✔ alertes actives
+
+---
+
+# 🔭 Vision finale
+
+---
+
+```text
+ONE COMMAND → FULL IIoT PLATFORM
 ```
 
 ---
 
-# Partie 3 — docker-compose.yml
-
----
-
-Créer le fichier :
-
-```bash id="n8k2p4"
-nano docker-compose.yml
-```
-
----
-
-## Contenu complet
-
-```yaml id="m2k9p3"
-version: "3.8"
-
-services:
-
-  mosquitto:
-    image: eclipse-mosquitto
-    container_name: mqtt-broker
-    ports:
-      - "1883:1883"
-    networks:
-      - iiot-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "mosquitto_pub", "-h", "localhost", "-t", "healthcheck", "-m", "ok"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  influxdb:
-    image: influxdb:2.7
-    container_name: influxdb
-    ports:
-      - "8086:8086"
-    volumes:
-      - influxdb-data:/var/lib/influxdb2
-      - ./secrets/influx_token.txt:/run/secrets/influx_token:ro
-    environment:
-      DOCKER_INFLUXDB_INIT_MODE: ${DOCKER_INFLUXDB_INIT_MODE}
-      DOCKER_INFLUXDB_INIT_USERNAME: ${DOCKER_INFLUXDB_INIT_USERNAME}
-      DOCKER_INFLUXDB_INIT_PASSWORD: ${DOCKER_INFLUXDB_INIT_PASSWORD}
-      DOCKER_INFLUXDB_INIT_ORG: ${DOCKER_INFLUXDB_INIT_ORG}
-      DOCKER_INFLUXDB_INIT_BUCKET: ${DOCKER_INFLUXDB_INIT_BUCKET}
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: ${INFLUXDB_TOKEN}
-      # Option avancée :
-      # DOCKER_INFLUXDB_INIT_ADMIN_TOKEN_FILE: /run/secrets/influx_token
-    networks:
-      - iiot-network
-    restart: unless-stopped
-    healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
-      interval: 30s
-      timeout: 10s
-      retries: 5
-
-  grafana:
-    image: grafana/grafana
-    container_name: grafana
-    depends_on:
-      influxdb:
-        condition: service_healthy
-    ports:
-      - "3000:3000"
-    volumes:
-      - grafana-storage:/var/lib/grafana
-    networks:
-      - iiot-network
-    restart: unless-stopped
-
-  node-red:
-    image: nodered/node-red
-    container_name: node-red
-    depends_on:
-      mosquitto:
-        condition: service_healthy
-      influxdb:
-        condition: service_healthy
-    ports:
-      - "1880:1880"
-    volumes:
-      - ./node-red-data:/data
-    networks:
-      - iiot-network
-    restart: unless-stopped
-
-  data-collector:
-    build: .
-    container_name: opcua-data-collector
-    depends_on:
-      mosquitto:
-        condition: service_healthy
-    volumes:
-      - ./config.yml:/app/config.yml
-    networks:
-      - iiot-network
-    restart: unless-stopped
-
-volumes:
-  influxdb-data:
-  grafana-storage:
-
-networks:
-  iiot-network:
-    driver: bridge
-```
-
----
-
-# Partie 4 — Lancement
-
----
-
-```bash id="f3k9p2"
-docker compose up -d --build
-```
-
----
-
-# Partie 5 — Vérification
-
----
-
-```bash id="k2p8m1"
-docker compose ps
-```
-
----
-
-👉 Tous les services doivent être :
-
-* running
-* healthy
-
----
-
-# Partie 6 — Accès aux services
-
----
-
-| Service  | URL                   |
-| -------- | --------------------- |
-| Node-RED | http://localhost:1880 |
-| InfluxDB | http://localhost:8086 |
-| Grafana  | http://localhost:3000 |
-
----
-
-# Partie 7 — Healthchecks
-
----
-
-## Définition
-
-Permet de vérifier l’état d’un service.
-
----
-
-## Exemple MQTT
-
-```yaml id="p2k8m1"
-healthcheck:
-  test: ["CMD", "mosquitto_pub", "-h", "localhost"]
-```
-
----
-
-## Exemple InfluxDB
-
-```yaml id="x7k2p1"
-test: ["CMD", "curl", "-f", "http://localhost:8086/health"]
-```
-
----
-
-👉 Permet de garantir :
-
-* démarrage correct
-* dépendances fiables
-
----
-
-# Analyse
-
----
-
-## Exercice 1
-
-Pourquoi utiliser Docker Compose ?
-
----
-
-## Exercice 2
-
-Pourquoi utiliser un fichier `.env` ?
-
----
-
-## Exercice 3
-
-Pourquoi utiliser un fichier secret ?
-
----
-
-## Exercice 4
-
-Quel est le rôle des healthchecks ?
-
----
-
-# Résultat attendu
-
-* stack complète fonctionnelle
-* services interconnectés
-* architecture stable
-
----
-
-# Conclusion
-
-Docker Compose permet de déployer toute l’architecture en une seule commande.
-
-👉 C’est une approche DevOps moderne.
-
----
-
-## Prochaine étape
-
-👉 CI/CD et Pull Model
-
----

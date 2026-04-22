@@ -1,31 +1,34 @@
-# TP 06 — Node-RED : Traitement des données IoT (MQTT → Processing)
+
+# TP 05 — Node-RED : Traitement des données IoT (MQTT → Processing)
 
 ---
 
-## Objectifs pédagogiques
+## 🎯 Objectifs pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
-* Comprendre le rôle de Node-RED dans une architecture IoT
-* Déployer Node-RED avec Docker
-* Se connecter à MQTT
-* Créer un flow de traitement
-* Manipuler des données industrielles
-* Écrire une logique dans un node Function
+- Comprendre le rôle de Node-RED dans une architecture IoT industrielle  
+- Déployer Node-RED avec Docker  
+- Se connecter à un broker MQTT  
+- Créer un flow de traitement de données  
+- Manipuler des données industrielles (JSON)  
+- Implémenter une logique métier avec un node **Function**  
+- Visualiser des données avec Node-RED Dashboard  
+- Exporter un flow pour réutilisation (approche DevOps)  
 
 ---
 
-## Contexte
+## 🧠 Contexte
 
-Dans l’architecture actuelle :
+Dans notre architecture IIoT :
 
 ```text
-OPC UA → Data Collector → MQTT
+PLC → OPC UA → Data Collector → MQTT
 ````
 
-👉 Les données arrivent sous forme de messages JSON.
+👉 Les données sont publiées sur MQTT sous forme de messages JSON.
 
-Exemple :
+### Exemple :
 
 ```json
 {
@@ -38,30 +41,28 @@ Exemple :
 
 ---
 
-## Problème
+## ⚠️ Problématique
 
-Ces données :
+Les données MQTT sont :
 
-* ne sont pas encore structurées pour stockage
-* ne sont pas filtrées
-* contiennent du bruit (timestamps, formats, etc.)
-
----
-
-## Solution
-
-👉 Utiliser Node-RED pour :
-
-* filtrer
-* nettoyer
-* transformer
-* préparer les données
+* non structurées pour le stockage
+* non filtrées
+* bruitées (formats variables, données inutiles)
 
 ---
 
-# Partie 1 — Déploiement Node-RED
+## ✅ Solution
+
+👉 Utiliser **Node-RED** comme couche de traitement :
+
+* Filtrer
+* Nettoyer
+* Transformer
+* Préparer les données pour le stockage (InfluxDB)
 
 ---
+
+# 🚀 Partie 1 — Déploiement de Node-RED
 
 ```bash
 docker run -d \
@@ -75,111 +76,99 @@ docker run -d \
 
 ---
 
-# Partie 2 — Accès
+# 🌐 Partie 2 — Accès à l’interface
 
----
+Ouvrir dans le navigateur :
 
-Ouvrir :
-
-```text
+```
 http://192.168.56.12:1880
 ```
 
 ---
 
-# Partie 3 — Création du flow
+# 🔧 Partie 3 — Création du flow
 
----
-
-## Objectif
+## 🎯 Objectif
 
 Créer le pipeline suivant :
 
 ```text
-MQTT IN → Function → DEBUG
+MQTT IN → Function → Debug
 ```
-
 ---
 
-## Étape 1 — MQTT IN
+## 📡 Étape 1 — Configuration MQTT IN
 
 Configurer :
 
 * Broker : `mqtt-broker`
 * Port : `1883`
 
----
+### Topic :
 
-## Topic
-
-```text
+```
 factory/+/+
 ```
 
----
-
-👉 Permet de recevoir toutes les données
+👉 Permet de recevoir toutes les données des PLC.
 
 ---
 
-# Partie 4 — Traitement des données (IMPORTANT)
+# 🧠 Partie 4 — Traitement des données (IMPORTANT)
+
+## 🎯 Objectif
+
+Créer une fonction Node-RED qui :
+
+* Lit les données MQTT
+* Extrait les informations utiles
+* Nettoie les données
+* Convertit les valeurs
+* Génère un format prêt pour le stockage
 
 ---
 
-## Objectif
+## 🧪 Travail demandé
 
-👉 Écrire une fonction Node-RED qui :
+Dans le node **Function**, implémenter :
 
-* lit les données MQTT
-* ignore les timestamps inutiles
-* extrait :
+### 1. Parsing du message
 
-  * plc
-  * tag
-  * value
-* convertit la valeur en nombre
-* prépare un format propre
+* Gérer :
+
+  * JSON
+  * string
 
 ---
 
-## Consigne
+### 2. Extraction des champs
 
-Dans le node **Function**, écrire un script JavaScript qui :
-
-### 1. Parse le message MQTT
-
-* gérer string ou JSON
+* `plc`
+* `tag`
+* `value`
 
 ---
 
-### 2. Extraire les informations
+### 3. Nettoyage
 
-* machine (plc)
-* capteur (tag)
-* valeur (value)
-
----
-
-### 3. Nettoyer la donnée
-
-* convertir en nombre
-* gérer les erreurs
+* Conversion en nombre
+* Gestion des erreurs
 
 ---
 
-### 4. Ignorer certains messages
+### 4. Filtrage
 
-👉 ignorer :
+Ignorer :
 
-```text
+```
 tag = time
 ```
 
 ---
 
-### 5. Construire une nouvelle structure
+### 5. Transformation
 
-Exemple attendu :
+Construire :
 
 ```json
 {
@@ -191,9 +180,7 @@ Exemple attendu :
 
 ---
 
-## Indice
-
-👉 Vous pouvez utiliser :
+## 💡 Indices
 
 ```javascript
 msg.topic.split("/")
@@ -203,9 +190,9 @@ Number()
 
 ---
 
-## Résultat attendu
+## ✅ Résultat attendu
 
-👉 Dans le debug :
+Dans Debug :
 
 * données propres
 * valeurs numériques
@@ -213,9 +200,7 @@ Number()
 
 ---
 
-# Partie 5 — Validation
-
----
+# 🧪 Partie 5 — Validation
 
 ## Flow final
 
@@ -227,80 +212,169 @@ MQTT → Function → Debug
 
 ## Résultat
 
-👉 Données transformées en temps réel
+👉 Données transformées en temps réel.
 
 ---
 
-# Analyse
+# 📊 Partie 6 — Visualisation avec Node-RED Dashboard
+
+## 🎯 Objectif
+
+Afficher les données industrielles en temps réel.
 
 ---
 
-## Exercice 1
+## 🧩 Installation (via interface graphique)
+
+👉 Ne PAS utiliser le terminal.
+
+### Étapes :
+
+1. Ouvrir Node-RED
+2. Menu (☰)
+3. **Manage Palette**
+4. Onglet **Install**
+5. Rechercher :
+
+```
+@flowfuse/node-red-dashboard
+```
+
+6. Cliquer sur **Install**
+
+---
+
+## 🏗️ Organisation du Dashboard
+
+👉 Bonne pratique :
+
+➡️ **1 page = 1 système industriel**
+
+---
+
+### Structure recommandée :
+
+* 🔵 PLC1 — Motor System
+* 🟢 PLC2 — Hydraulic System
+* 🟡 PLC3 — Energy System
+
+---
+
+## 🌐 Accès
+
+```
+http://192.168.56.12:1880/dashboard
+```
+
+---
+
+## 🧪 Bonnes pratiques
+
+* Nommer clairement les widgets
+* Ajouter les unités (°C, bar, kW…)
+* Séparer les systèmes
+* Éviter les dashboards surchargés
+
+---
+
+# 📦 Partie 7 — Export du Flow (IMPORTANT)
+
+## 🎯 Objectif
+
+Sauvegarder et versionner votre travail.
+
+---
+
+## 📤 Étapes
+
+1. Menu (☰)
+2. **Export**
+3. Sélectioner **all flows**
+4. cliquer sur Download
+
+---
+
+## 📁 Stockage recommandé
+
+```
+project-iot/
+ └── flows/
+      └── flows.json
+```
+
+---
+
+## 🎯 Résultat attendu
+
+* Flow complet exporté
+* Réutilisable
+* Versionnable (Git)
+
+---
+
+# 🧠 Analyse & Questions
+
+## ❓ Exercice 1
 
 Quel est le rôle de Node-RED dans cette architecture ?
 
 ---
 
-## Exercice 2
+## ❓ Exercice 2
 
 Pourquoi transformer les données avant stockage ?
 
 ---
 
-## Exercice 3
+## ❓ Exercice 3
 
 Quel est le rôle du node MQTT IN ?
 
 ---
 
-## Exercice 4
+## ❓ Exercice 4
 
 Pourquoi utiliser un node Function ?
 
 ---
 
-## Exercice 5 (IMPORTANT)
+## ❓ Exercice 5 (IMPORTANT)
 
-Expliquez :
-
-👉 pourquoi il faut convertir les valeurs en **nombre**
+Pourquoi faut-il convertir les valeurs en **nombre** ?
 
 ---
 
-# Hints
+# 🧩 Hints
+
+* Vérifier MQTT
+* Vérifier le topic
+* Vérifier JSON
+* Utiliser Debug
+* Observer `msg.payload`
 
 ---
 
-* vérifier MQTT
-* vérifier topic
-* vérifier format JSON
-* utiliser console debug Node-RED
-
----
-
-# Vision architecture
-
----
+# 🏗️ Vision globale
 
 ```text
-PLC → OPC UA → Data Collector → MQTT → Node-RED → Processing
+PLC → OPC UA → Data Collector → MQTT → Node-RED → Processing → Stockage
 ```
 
 ---
 
-# Conclusion
+# 🏁 Conclusion
 
 Node-RED permet :
 
-* de transformer les données industrielles
-* de préparer le stockage
-* d’ajouter de la logique métier
+* Transformation des données industrielles
+* Préparation au stockage
+* Implémentation de logique métier
+* Visualisation temps réel
 
 ---
 
-## Prochaine étape
+## 🔜 Prochaine étape
 
-👉 Stockage avec InfluxDB
+👉 Intégration avec **InfluxDB** + **Grafana**
 
 ---
-

@@ -1,124 +1,207 @@
-# Corrigé - TP 10 Docker Compose
+#  Corrigé — TP 10 Docker Compose & Provisioning
 
 ---
 
-## Étape 1 — .env
+## 🧠 Principe clé
 
-```env id="v2k8p1"
+👉 On passe de :
+
+```text
+configuration manuelle ❌
+```
+
+à :
+
+```text
+infrastructure automatisée ✅
+```
+
+---
+
+# ⚙️ 1 — Fichier `.env`
+
+---
+
+```env
 DOCKER_INFLUXDB_INIT_MODE=setup
 DOCKER_INFLUXDB_INIT_USERNAME=admin
 DOCKER_INFLUXDB_INIT_PASSWORD=admin123
 DOCKER_INFLUXDB_INIT_ORG=iiot
 DOCKER_INFLUXDB_INIT_BUCKET=edge-GW
 INFLUXDB_TOKEN=my-super-token
+
+GF_SMTP_ENABLED=true
+GF_SMTP_HOST=smtp.gmail.com:587
+GF_SMTP_USER=your_email@gmail.com
+GF_SMTP_PASSWORD=your_app_password
+GF_SMTP_FROM_ADDRESS=your_email@gmail.com
+GF_SMTP_FROM_NAME=grafana
 ```
 
 ---
 
-## Étape 2 — Secrets
+## 🧠 Explication
 
-```bash id="y8k2p1"
+👉 Permet d’initialiser automatiquement InfluxDB
+👉 Configure aussi l’envoi d’emails dans Grafana
+
+---
+
+# 🔐 2 — Secret InfluxDB
+
+---
+
+```bash
 mkdir -p secrets
 echo "my-super-token" > secrets/influx_token.txt
 ```
 
 ---
 
-## Étape 3 — Lancement
+## 🧠 Explication
 
-```bash id="p3k9m2"
-docker compose up -d --build
+👉 évite d’exposer le token dans le code
+👉 bonne pratique DevOps
+
+---
+
+# ⚙️ 3 — Docker Compose COMPLET
+
+---
+
+![docker-compose](docker-compose.yml)
+---
+
+# 🧠 Explication des services
+
+---
+
+## MQTT
+
+👉 broker simple (edge)
+
+---
+
+## InfluxDB
+
+👉 base de données time-series
+👉 initialisée automatiquement
+
+---
+
+## Grafana
+
+👉 provisioning automatique :
+
+* datasource
+* dashboards
+* alertes
+
+---
+
+## Node-RED
+
+👉 traitement des données
+👉 flow chargé automatiquement
+
+---
+
+## Data Collector
+
+👉 OPC-UA → MQTT
+
+---
+
+# 🌐 Réseau
+
+---
+
+👉 tous les services utilisent :
+
+```text
+iiot-network
+```
+
+✔ communication interne
+✔ pas besoin d’IP
+
+---
+
+# 🚀 4 — Lancement
+
+---
+
+```bash
+docker compose up -d
 ```
 
 ---
 
-## Vérification
-
-```bash id="k4p8m1"
-docker compose ps
-```
+# ✅ Vérification
 
 ---
 
-## Logs
+## Grafana
 
-```bash id="z8k2p1"
-docker compose logs
-```
-
----
-
-## Exercice 1
-
-Docker Compose :
-
-* orchestre plusieurs services
-* simplifie le déploiement
+👉 dashboards déjà présents
+👉 alertes déjà configurées
 
 ---
 
-## Exercice 2
+## InfluxDB
 
-.env :
-
-* évite le hardcoding
-* centralise la config
+👉 bucket automatiquement créé
 
 ---
 
-## Exercice 3
+## Node-RED
 
-Secrets :
-
-* sécurise les tokens
+👉 flow chargé automatiquement
 
 ---
 
-## Exercice 4
-
-Healthchecks :
-
-* vérifie état service
-* améliore stabilité
+# 🧠 Réponses aux questions
 
 ---
 
-## Problèmes fréquents
+## Question 1
+
+👉 Docker Compose permet :
+
+* déploiement rapide
+* reproductibilité
+* standardisation
 
 ---
 
-### Service KO
+## Question 2
 
-```bash id="k9p2m1"
-docker compose logs influxdb
-```
+👉 Provisioning Grafana :
 
----
-
-### Pas de données
-
-* vérifier Node-RED
-* vérifier MQTT
+* évite config manuelle
+* déploiement automatique
+* cohérence
 
 ---
 
-### Grafana vide
+## Question 3
 
-* vérifier InfluxDB
-* vérifier bucket
+👉 Automatisation :
 
----
-
-## Conclusion
-
-La stack IoT est entièrement automatisée.
+* gain de temps
+* réduction des erreurs
+* passage à l’échelle
 
 ---
 
-## Vision finale
+# 🏁 Conclusion
 
-```text id="k1p9m3"
-Smart Factory déployée automatiquement 🚀
-```
+---
+
+👉 Tu as maintenant :
+
+✔ une plateforme IIoT complète
+✔ automatisée
+✔ prête pour production
 
 ---
