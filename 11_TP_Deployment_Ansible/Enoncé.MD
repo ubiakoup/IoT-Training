@@ -1,8 +1,8 @@
-# 🚀 TP 11 — Déploiement IIoT avec Ansible (Vagrant Edition)
+#  TP 11 — Déploiement IIoT avec Ansible (Vagrant Edition)
 
 ---
 
-## 🎯 Objectifs pédagogiques
+##  Objectifs pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
@@ -15,7 +15,7 @@
 
 ---
 
-## 🧠 Contexte
+## Contexte
 
 Jusqu’ici, vous avez déployé votre architecture IoT :
 
@@ -42,13 +42,13 @@ Dans un environnement multi-machines :
 
 ---
 
-## ✅ Solution
+##  Solution
 
 👉 Utiliser **Ansible**
 
 ---
 
-## 🧱 Infrastructure
+##  Infrastructure
 
 | Machine          | Rôle          | IP            |
 | ---------------- | ------------- | ------------- |
@@ -58,7 +58,7 @@ Dans un environnement multi-machines :
 
 ---
 
-# ⚠️ IMPORTANT — Spécificité Vagrant
+#  IMPORTANT — Spécificité Vagrant
 
 👉 Chaque machine virtuelle Vagrant possède sa propre clé SSH
 
@@ -69,7 +69,7 @@ Dans un environnement multi-machines :
 
 ---
 
-## ✅ Approche utilisée
+##  Approche utilisée
 
 👉 Nous allons :
 
@@ -79,11 +79,11 @@ Dans un environnement multi-machines :
 
 ---
 
-# 📁 Partie 1 — Accès aux clés Vagrant
+#  Partie 1 — Accès aux clés Vagrant
 
 ---
 
-## ⚠️ IMPORTANT — Accès au dossier `.vagrant`
+##  IMPORTANT — Accès au dossier `.vagrant`
 
 Le dossier `.vagrant` est généré automatiquement par Vagrant.
 
@@ -121,7 +121,7 @@ Utiliser le dossier partagé Projects et creer un dossier vagrant puis y copier 
 
 ---
 
-## 🧠 À retenir
+##  À retenir
 
 ```text
 Host (Windows) → 11_TP_Deployment_Ansible\vagrant\.vagrant
@@ -130,11 +130,11 @@ VM (Linux) → Projects/vagrant/.vagrant
 
 ---
 
-# 🔐 Partie 2 — Configuration SSH (VM Ansible)
+#  Partie 2 — Configuration SSH (VM Ansible)
 
 ---
 
-## 🎯 Objectif
+##  Objectif
 
 Permettre à Ansible de se connecter aux machines
 
@@ -327,7 +327,7 @@ ansible-playbook -i hosts.yml deploy_opcua_plc_simulator.yml
 ---
 
 
-## 🎯 Résultat attendu
+##  Résultat attendu
 
 👉 Déploiement automatique complet :
 
@@ -339,7 +339,7 @@ ansible-playbook -i hosts.yml deploy_opcua_plc_simulator.yml
 
 ---
 
-# 🔍 Vérifications
+#  Vérifications
 
 ---
 
@@ -359,7 +359,7 @@ ansible-playbook -i hosts.yml deploy_opcua_plc_simulator.yml
 
 ---
 
-# 🧠 Analyse
+#  Analyse
 
 ---
 
@@ -393,7 +393,7 @@ Quel est l’avantage d’Ansible par rapport à Docker Compose seul ?
 
 ---
 
-# 🏁 Résultat final
+#  Résultat final
 
 ---
 
@@ -414,7 +414,7 @@ Quel est l’avantage d’Ansible par rapport à Docker Compose seul ?
 
 ---
 
-# 🏁 Conclusion
+#  Conclusion
 
 Ansible permet :
 

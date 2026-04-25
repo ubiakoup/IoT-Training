@@ -242,96 +242,94 @@ chmod 755 ~/projects/Ansible
 
 ```yaml
 ---
-- name: Deploy Edge Gateway Services
+- name: "deploy Edge-Gateway services"
   hosts: edge
   become: true
-
   vars_files:
-    - vars.yml
+  - vars.yml
 
   pre_tasks:
-
-    - name: Install required packages
-      apt:
-        name:
-          - docker.io
-          - docker-compose-plugin
+     - name: Install docker compose plugin
+       ansible.builtin.apt:
+        name: docker-compose-plugin
         state: present
         update_cache: yes
 
+     - name: Install rsync
+       ansible.builtin.apt:
+        name: rsync
+        state: present
+        update_cache: yes
   tasks:
+     - name: Ensure directories exist
+       file:
+         path: "{{ item }}"
+         state: directory
+       loop:
+         - /home/vagrant/edge-stack
+         - /home/vagrant/data/node-red
+         - /home/vagrant/edge-stack/secrets
+         - /home/vagrant/data/influxdb
+         - /home/vagrant/data/grafana
 
-    - name: Ensure directories exist
-      file:
-        path: "{{ item }}"
-        state: directory
-        mode: '0755'
-      loop:
-        - /home/edge/edge-stack
-        - /home/edge/data/node-red
-        - /home/edge/data/influxdb
-        - /home/edge/data/grafana
-        - /home/edge/edge-stack/secrets
+     - name: Fix Node-RED permissions
+       file:
+          path: /home/vagrant/data/node-red
+          owner: 1000
+          group: 1000
+          recurse: yes
 
-    - name: Fix Node-RED permissions
-      file:
-        path: /home/edge/data/node-red
+     - name: Fix InfluxDB permissions
+       file:
+        path: /home/vagrant/data/influxdb
         owner: 1000
         group: 1000
         recurse: yes
 
-    - name: Fix InfluxDB permissions
-      file:
-        path: /home/edge/data/influxdb
-        owner: 1000
-        group: 1000
-        recurse: yes
 
-    - name: Fix Grafana permissions
-      file:
-        path: /home/edge/data/grafana
+     - name: Fix Grafana permissions
+       file:
+        path: /home/vagrant/data/grafana
         owner: 472
         group: 472
         recurse: yes
 
-    - name: Copy edge gateway stack
-      synchronize:
+     - name: Copy edge gateway stack
+       ansible.posix.synchronize:
         src: ./files/
-        dest: /home/edge/edge-stack/
+        dest: /home/vagrant/edge-stack/
+        delete: yes
         rsync_opts:
           - "--exclude=.env"
           - "--exclude=secrets"
+          - "--exclude=data"
+          - "--exclude=node-red"
+       
+     - name: Remove influx_token if it exists as directory
+       file:
+        path: /home/vagrant/edge-stack/secrets/influx_token.txt
+        state: absent      
+      
+     - name: Copy secrets (controlled)
+       copy:
+          src: ./files/secrets/influx_token.txt
+          dest: /home/vagrant/edge-stack/secrets/influx_token.txt
+          owner: root
+          group: root
+          mode: '0444'
 
-    - name: Remove bad token directory if exists
-      file:
-        path: /home/edge/edge-stack/secrets/influx_token.txt
-        state: absent
+     - name: Deploy .env file (templated)
+       template:
+         src: .env.j2
+         dest: /home/vagrant/edge-stack/.env
+         mode: '0400'
 
-    - name: Copy influx token
-      copy:
-        src: ./files/secrets/influx_token.txt
-        dest: /home/edge/edge-stack/secrets/influx_token.txt
-        mode: '0400'
+     - name: Run docker compose
+       command: docker compose up --build -d
+       args:
+        chdir: /home/vagrant/edge-stack
 
-    - name: Deploy .env file
-      template:
-        src: templates/.env.j2
-        dest: /home/edge/edge-stack/.env
-        mode: '0400'
-
-    - name: Copy Node-RED flow (first deploy only)
-      copy:
-        src: ./files/node-red/flows.json
-        dest: /home/edge/data/node-red/flows.json
-        owner: 1000
-        group: 1000
-        force: no
-
-    - name: Run docker compose
-      command: docker compose up -d --build
-      args:
-        chdir: /home/edge/edge-stack
-```
+  
 
 ---
 

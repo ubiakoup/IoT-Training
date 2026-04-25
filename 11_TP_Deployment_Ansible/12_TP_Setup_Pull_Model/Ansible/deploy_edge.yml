@@ -1,0 +1,115 @@
+- name: "deploy Edge-Gateway services"
+  hosts: edge
+  become: true
+  vars_files:
+    - vars.yml
+
+  pre_tasks:
+    - name: Install docker compose plugin
+      ansible.builtin.apt:
+        name: docker-compose-plugin
+        state: present
+        update_cache: yes
+
+
+  tasks:
+
+    # -------------------------------
+    # Directories
+    # -------------------------------
+    - name: Ensure directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /home/vagrant/edge-stack
+        - /home/vagrant/edge-stack/secrets
+        - /home/vagrant/data/influxdb
+        - /home/vagrant/data/grafana
+
+    # -------------------------------
+    # Permissions
+    # -------------------------------
+    - name: Fix InfluxDB permissions
+      file:
+        path: /home/vagrant/data/influxdb
+        owner: 1000
+        group: 1000
+        recurse: yes
+
+    - name: Fix Grafana permissions
+      file:
+        path: /home/vagrant/data/grafana
+        owner: 472
+        group: 472
+        recurse: yes
+
+    # -------------------------------
+    # Clone project (clé du TP12)
+    # -------------------------------
+    - name: Clone project repository
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: /home/vagrant/edge-stack
+        version: main
+        force: yes
+
+    # -------------------------------
+    # Secrets (restent côté Ansible)
+    # -------------------------------
+    - name: Copy secrets
+      copy:
+        src: ./files/secrets/influx_token.txt
+        dest: /home/vagrant/edge-stack/secrets/influx_token.txt
+        owner: root
+        group: root
+        mode: '0444'
+
+    # -------------------------------
+    # ENV (infra → ansible)
+    # -------------------------------
+    - name: Deploy .env file
+      template:
+        src: .env.j2
+        dest: /home/vagrant/edge-stack/.env
+        mode: '0400'
+
+    # -------------------------------
+    # Pull script
+    # -------------------------------
+    - name: Deploy pull-update script
+      copy:
+        src: ./files/pull-update.sh
+        dest: /home/vagrant/pull-update.sh
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    # -------------------------------
+    # systemd
+    # -------------------------------
+    - name: Deploy systemd service
+      copy:
+        src: ./files/iiot-pull.service
+        dest: /etc/systemd/system/iiot-pull.service
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Enable pull service
+      systemd:
+        name: iiot-pull.service
+        enabled: yes
+
+    - name: Start pull service
+      systemd:
+        name: iiot-pull.service
+        state: started
+
+    # -------------------------------
+    # First run ONLY
+    # -------------------------------
+    - name: Initial docker compose up
+      command: docker compose up -d --build
+      args:
+        chdir: /home/vagrant/edge-stack
