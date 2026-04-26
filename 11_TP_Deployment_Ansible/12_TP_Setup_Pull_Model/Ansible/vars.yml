@@ -1,3 +1,4 @@
 influx_token: my-super-token
 smtp_user: mbiakoupberanger@gmail.com
 smtp_password: hkmqtisrjfdxgulb
+git_repo_url: git@github.com:ubiakoup/iiot-edge-stack.git

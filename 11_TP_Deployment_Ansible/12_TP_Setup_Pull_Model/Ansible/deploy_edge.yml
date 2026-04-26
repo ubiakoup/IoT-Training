@@ -47,12 +47,31 @@
     # -------------------------------
     # Clone project (clé du TP12)
     # -------------------------------
+
+    - name: Remove existing edge-stack directory
+      file:
+        path: /home/vagrant/edge-stack
+        state: absent
+
     - name: Clone project repository
       git:
         repo: "{{ git_repo_url }}"
         dest: /home/vagrant/edge-stack
         version: main
-        force: yes
+        key_file: /home/vagrant/.ssh/id_ed25519
+        accept_hostkey: yes
+      become_user: vagrant
+
+    - name: Ensure ownership is correct
+      file:
+        path: /home/vagrant/edge-stack
+        owner: vagrant
+        group: vagrant
+        recurse: yes
+    
+    - name: Fix git safe directory
+      command: git config --global --add safe.directory /home/vagrant/edge-stack
+      become_user: vagrant
 
     # -------------------------------
     # Secrets (restent côté Ansible)
@@ -72,7 +91,9 @@
       template:
         src: .env.j2
         dest: /home/vagrant/edge-stack/.env
-        mode: '0400'
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
 
     # -------------------------------
     # Pull script

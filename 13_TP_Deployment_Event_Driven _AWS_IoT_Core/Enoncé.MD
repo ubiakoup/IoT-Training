@@ -1,126 +1,124 @@
-# 📘 TP13 – Énoncé : Déploiement Event-Driven (Trigger par événement)
+Parfait — là tu passes clairement en **architecture IoT industrielle complète AWS** 👍
+👉 On va verrouiller **TP13 dans la logique AWS IoT Core**, pour que tout le reste (Timestream, Lambda, SNS, S3) s’enchaîne naturellement.
 
 ---
 
-# Objectifs pédagogiques
+# 📘 TP13 – Énoncé (VERSION AWS INDUSTRIELLE)
+
+## Déploiement Event-Driven avec AWS IoT Core
+
+---
+
+# 🎯 Objectifs pédagogiques
 
 À la fin de ce TP, vous serez capable de :
 
-* Comprendre les limites du Pull Model
-* Mettre en place un déclenchement par événement
-* Déployer une stack à la demande
-* Utiliser MQTT comme trigger
-* Implémenter une logique Event-Driven sur un Edge
+* Utiliser **AWS IoT Core** comme broker MQTT sécurisé
+* Connecter un Edge via certificat X.509
+* Déclencher un déploiement via un événement MQTT
+* Intégrer un pipeline CI/CD avec IoT Core
+* Comprendre une architecture IoT cloud industrielle
 
 ---
 
-#  Contexte
+# 🧠 Contexte
 
-Dans le TP12, vous avez mis en place un Pull Model :
+Dans un environnement réel :
 
 ```text
-Edge → git pull → docker compose
+Edge n’a PAS d’IP publique
 ```
 
-👉 Mais ce modèle présente une limite :
+👉 donc :
 
 ```text
-❌ vérification périodique (polling)
-❌ latence inutile
-❌ consommation inutile
-```
-
----
-
-#  Nouvelle approche : Event-Driven
-
-👉 L’Edge ne vérifie plus en boucle
-👉 Il réagit uniquement lorsqu’un événement arrive
-
----
-
-#  Architecture
-
-```text
-Dev → git push → Event → MQTT → Edge → Deploy
+Edge → se connecte au Cloud
+Cloud → envoie des événements
 ```
 
 ---
 
-#  Principe
+# 🧱 Architecture
 
-1. Un événement est envoyé (ex: MQTT)
-2. L’Edge reçoit cet événement
-3. L’Edge déclenche le déploiement
+```text
+Git Push
+   ↓
+GitHub Actions
+   ↓
+AWS IoT Core (MQTT TLS)
+   ↓
+Edge (subscriber sécurisé)
+   ↓
+deploy.sh
+   ↓
+docker compose
+```
 
 ---
 
-#  Partie 1 — Préparer le script de déploiement
+# 🛠️ Partie 1 — Créer un Thing AWS IoT
+
+Dans AWS :
+
+1. Aller dans **AWS IoT Core**
+2. Créer un **Thing** → `edge-device`
+3. Générer :
+
+   * certificat
+   * clé privée
+   * CA Amazon
+4. Attacher une policy MQTT :
+
+```json
+{
+  "Effect": "Allow",
+  "Action": ["iot:Connect","iot:Subscribe","iot:Receive"],
+  "Resource": "*"
+}
+```
 
 ---
 
-Créer le script :
+# 🛠️ Partie 2 — Script de déploiement Edge
 
 ```bash
 nano /home/vagrant/deploy.sh
 ```
 
----
-
-Contenu :
-
 ```bash
 #!/bin/bash
 
-PROJECT_DIR="/home/vagrant/edge-stack"
+cd /home/vagrant/edge-stack || exit 1
 
-echo "📁 Moving to project directory..."
-cd $PROJECT_DIR || exit 1
-
-echo "🔄 Pull latest version..."
 git pull origin main || exit 1
 
-echo "🚀 Deploying..."
 docker compose up -d --build
 
-echo "✅ Done"
+echo "✅ Deployment done"
 ```
 
 ---
 
-Rendre exécutable :
-
-```bash
-chmod +x /home/vagrant/deploy.sh
-```
-
----
-
-# 📡 Partie 2 — Subscriber MQTT
-
----
-
-Créer le script :
+# 📡 Partie 3 — MQTT Listener sécurisé
 
 ```bash
 nano /home/vagrant/mqtt-listener.sh
 ```
 
----
-
-Contenu :
-
 ```bash
 #!/bin/bash
 
-echo "📡 Listening for deploy events..."
+BROKER="your-endpoint.iot.eu-central-1.amazonaws.com"
 
-mosquitto_sub -h localhost -t deploy/edge | while read msg
+mosquitto_sub \
+  -h $BROKER \
+  -p 8883 \
+  --cafile AmazonRootCA1.pem \
+  --cert device.pem.crt \
+  --key private.pem.key \
+  -t deploy/edge | while read msg
 do
-    echo "📨 Event received: $msg"
-
     if [ "$msg" = "update" ]; then
-        echo "🚀 Trigger deployment..."
         /home/vagrant/deploy.sh
     fi
 done
@@ -128,31 +126,11 @@ done
 
 ---
 
-Rendre exécutable :
-
-```bash
-chmod +x /home/vagrant/mqtt-listener.sh
-```
-
----
-
-# ⚙️ Partie 3 — Service systemd
-
----
-
-Créer le service :
-
-```bash
-sudo nano /etc/systemd/system/iiot-event.service
-```
-
----
-
-Contenu :
+# ⚙️ Partie 4 — Service systemd
 
 ```ini
 [Unit]
-Description=IIoT Event Driven Deployment
+Description=IIoT AWS Event Deployment
 After=network.target
 
 [Service]
@@ -166,61 +144,57 @@ WantedBy=multi-user.target
 
 ---
 
-Activer :
+# ☁️ Partie 5 — GitHub Actions
 
-```bash
-sudo systemctl daemon-reload
-sudo systemctl enable iiot-event.service
-sudo systemctl start iiot-event.service
+```yaml
+name: Deploy Edge via AWS IoT
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  trigger:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Install mosquitto
+        run: sudo apt-get install -y mosquitto-clients
+
+      - name: Send MQTT trigger
+        run: |
+          mosquitto_pub \
+            -h YOUR_AWS_ENDPOINT \
+            -p 8883 \
+            --cafile AmazonRootCA1.pem \
+            --cert ci.pem.crt \
+            --key ci-private.pem.key \
+            -t deploy/edge \
+            -m update
 ```
 
 ---
 
-# 🧪 Partie 4 — Test
+# 🧪 Partie 6 — Test
 
----
-
-Envoyer un événement :
-
-```bash
-mosquitto_pub -h localhost -t deploy/edge -m update
+```text
+git push → CI → MQTT → Edge → deploy
 ```
-
----
-
-👉 Attendu :
-
-* réception du message
-* déclenchement du script
-* mise à jour de la stack
 
 ---
 
 # 🔍 Analyse
 
----
-
-## Exercice 1
-
-Pourquoi ce modèle est-il plus efficace que le Pull Model ?
-
----
-
-## Exercice 2
-
-Quelle est la différence entre polling et event-driven ?
-
----
-
-## Exercice 3
-
-Quels sont les avantages en environnement industriel ?
+* Pourquoi TLS est obligatoire ?
+* Pourquoi Edge initie la connexion ?
+* Quel est le rôle du broker ?
 
 ---
 
 ---
 
-# 📘 TP13 – Corrigé : Event-Driven Deployment
+# 📘 TP13 – Corrigé (VERSION AWS)
 
 ---
 
@@ -228,88 +202,73 @@ Quels sont les avantages en environnement industriel ?
 
 ---
 
-## Pourquoi Event-Driven ?
+## Pourquoi AWS IoT Core ?
 
 ```text
-✔ pas de boucle inutile
-✔ réaction immédiate
-✔ consommation minimale
+✔ sécurisé (TLS)
 ✔ scalable
+✔ gestion des devices
+✔ intégration cloud native
 ```
 
 ---
 
-## Polling vs Event
-
-| Polling           | Event-Driven        |
-| ----------------- | ------------------- |
-| vérifie en boucle | attend un événement |
-| latence           | immédiat            |
-| consommation CPU  | faible              |
-| inefficace        | optimisé            |
-
----
-
-# ⚙️ Script de déploiement
-
-👉 identique au TP12 mais déclenché à la demande
-
----
-
-# 📡 MQTT Listener
-
-👉 rôle :
+## Fonctionnement
 
 ```text
-✔ écouter un topic
-✔ déclencher une action
+Edge → connecté en continu au broker AWS
+CI/CD → envoie un message MQTT
+Edge → reçoit → déclenche
 ```
 
 ---
 
-# ⚙️ systemd
+# 🔐 Sécurité
 
-👉 permet :
-
-* démarrage automatique
-* résilience
-* redémarrage en cas d’erreur
+* certificats X.509
+* policies MQTT
+* aucune IP publique nécessaire
 
 ---
 
-# ⚠️ Points importants
+# ⚙️ MQTT sécurisé
 
----
-
-## ❌ Ne pas utiliser localhost si broker en container
-
-👉 utiliser :
-
-```text
-mqtt-broker
+```bash
+mosquitto_sub \
+  -h endpoint \
+  -p 8883 \
+  --cert device.pem.crt \
+  --key private.pem.key \
+  --cafile AmazonRootCA1.pem
 ```
 
 ---
 
-## ❌ Ne pas oublier docker dans le script
-
-👉 sinon aucun déploiement
+# ⚠️ Erreurs fréquentes
 
 ---
 
-## ❌ Permissions script
+## ❌ Utiliser localhost
 
-👉 sinon rien ne s’exécute
-
----
-
-# 🔐 Bonnes pratiques
+👉 impossible avec AWS
 
 ---
 
-* sécuriser MQTT (auth / TLS)
-* limiter les topics
-* éviter les déclenchements non contrôlés
+## ❌ Mauvais certificats
+
+👉 connexion refusée
+
+---
+
+## ❌ Mauvaise policy
+
+👉 pas de subscribe/publish
+
+---
+
+## ❌ Mauvais endpoint
+
+👉 vérifier région AWS
 
 ---
 
@@ -317,26 +276,56 @@ mqtt-broker
 
 ---
 
-## Avant (TP12)
+## Avant
 
 ```text
-Edge vérifie régulièrement
+Edge vérifie (polling)
 ```
 
 ---
 
-## Maintenant (TP13)
+## Maintenant
 
 ```text
-Edge réagit uniquement aux événements
+Cloud déclenche (event)
 ```
 
 ---
 
 ## Résultat
 
-* système réactif
-* zéro polling
-* architecture moderne
+* déploiement instantané
+* architecture sécurisée
+* compatible industrie
 
 ---
+
+# 🚀 Suite logique (TP14+)
+
+👉 maintenant tu peux enchaîner :
+
+* IoT Rule → Timestream
+* IoT Rule → Lambda → SNS
+* IoT Rule → S3 (data lake)
+
+👉 là tu construis :
+
+```text
+Edge → AWS IoT → Data pipeline → ML
+```
+
+---
+
+# 💬 À retenir
+
+```text
+AWS IoT Core = cœur de ton architecture IoT
+```
+
+---
+
+Si tu veux, prochain TP :
+
+👉 **TP14 : IoT Rules → Timestream + dashboard industriel**
+
+(là tu touches du vrai Smart Factory 🔥)

@@ -1,8 +1,8 @@
-# TP12 – Corrigé final : Restructuration du déploiement & Pull Model
+#  TP12 – Corrigé final : Pull Model & séparation provisioning/runtime
 
 ---
 
-#  Objectif du TP
+# 🎯 Objectif du TP
 
 Transformer une architecture couplée :
 
@@ -17,71 +17,97 @@ Ansible → provisioning (1 fois)
 Pull Model → runtime (continu)
 ```
 
-👉 L’objectif est de **séparer clairement les responsabilités**.
+👉 L’objectif est de **séparer clairement les responsabilités** pour obtenir un système robuste, autonome et industriel.
 
 ---
 
-# 🧠 Partie 1 — Analyse
+#  Partie 1 — Compréhension du problème
 
 ---
 
-## Pourquoi relancer Ansible à chaque modification est une mauvaise pratique ?
+## ❌ Pourquoi Ansible ne doit pas tout faire ?
 
-* dépendance à un outil externe
-* manque d’autonomie de l’Edge
-* mises à jour lourdes
-* difficilement scalable
+Relancer Ansible à chaque modification pose plusieurs problèmes :
 
-👉 En industrie, un Edge doit être **autonome**.
+* dépendance à une machine externe
+* absence d’autonomie de l’Edge
+* déploiements lourds
+* non scalable en production
 
----
-
-## Provisioning vs Runtime
-
-| Concept      | Rôle                                            |
-| ------------ | ----------------------------------------------- |
-| Provisioning | Préparer le système (install, dossiers, config) |
-| Runtime      | Exécuter et mettre à jour les applications      |
-
-👉 Mélanger les deux rend le système fragile.
-
----
-
-## Risques d’un système non séparé
-
-* couplage fort
-* erreurs de déploiement
-* écrasement de configuration
-* maintenance complexe
-
----
-
-#  Partie 2 — Adaptation du playbook Ansible
-
----
-
-## Principe
-
-👉 Ansible :
+👉 En industrie :
 
 ```text
-✔ prépare la machine
-✔ clone le projet
-✔ installe le mécanisme de mise à jour
+Un Edge doit pouvoir vivre et évoluer seul
+```
+
+---
+
+##  Provisioning vs Runtime
+
+| Concept      | Rôle                                           |
+| ------------ | ---------------------------------------------- |
+| Provisioning | Préparer la machine (Docker, dossiers, config) |
+| Runtime      | Exécuter et mettre à jour les applications     |
+
+👉 Mélanger les deux = erreurs + instabilité
+
+---
+
+##  Problèmes rencontrés (réels)
+
+Ce TP a exposé des problèmes classiques en production :
+
+### ❌ 1. Accès Git privé
+
+* SSH non configuré
+* blocage du clone
+
+### ❌ 2. Ansible (root) vs runtime (vagrant)
+
+* fichiers créés en root
+* service exécuté en vagrant
+* conflits de permissions
+
+### ❌ 3. Git “dubious ownership”
+
+* sécurité Git moderne
+* repo bloqué
+
+### ❌ 4. Permissions `.env`
+
+* fichier inaccessible
+* docker compose échoue
+
+👉 💡 Ces problèmes sont **100% réalistes en entreprise**
+
+---
+
+#  Partie 2 — Playbook Ansible corrigé
+
+---
+
+##  Principe
+
+👉 Ansible doit :
+
+```text
+✔ préparer la machine
+✔ cloner le projet
+✔ installer le mécanisme d’update
+✔ lancer une première fois la stack
 ```
 
 👉 MAIS :
 
 ```text
-❌ ne gère plus le runtime au quotidien
+❌ ne gère plus le runtime continu
 ```
 
 ---
 
-## Playbook corrigé
+##  Playbook final
 
 ```yaml
----
 - name: "deploy Edge-Gateway services"
   hosts: edge
   become: true
@@ -90,14 +116,13 @@ Pull Model → runtime (continu)
 
   pre_tasks:
     - name: Install docker compose plugin
-      ansible.builtin.apt:
+      apt:
         name: docker-compose-plugin
         state: present
         update_cache: yes
 
   tasks:
 
-    # Directories
     - name: Ensure directories exist
       file:
         path: "{{ item }}"
@@ -108,7 +133,6 @@ Pull Model → runtime (continu)
         - /home/vagrant/data/influxdb
         - /home/vagrant/data/grafana
 
-    # Permissions
     - name: Fix InfluxDB permissions
       file:
         path: /home/vagrant/data/influxdb
@@ -123,15 +147,27 @@ Pull Model → runtime (continu)
         group: 472
         recurse: yes
 
-    # Clone project
+    - name: Remove existing edge-stack directory
+      file:
+        path: /home/vagrant/edge-stack
+        state: absent
+
     - name: Clone project repository
       git:
         repo: "{{ git_repo_url }}"
         dest: /home/vagrant/edge-stack
         version: main
-        force: yes
+        key_file: /home/vagrant/.ssh/id_ed25519
+        accept_hostkey: yes
+      become_user: vagrant
 
-    # Secrets
+    - name: Ensure ownership is correct
+      file:
+        path: /home/vagrant/edge-stack
+        owner: vagrant
+        group: vagrant
+        recurse: yes
+
     - name: Copy secrets
       copy:
         src: ./files/secrets/influx_token.txt
@@ -140,14 +176,14 @@ Pull Model → runtime (continu)
         group: root
         mode: '0444'
 
-    # ENV
     - name: Deploy .env file
       template:
         src: .env.j2
         dest: /home/vagrant/edge-stack/.env
-        mode: '0400'
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
 
-    # Pull script
     - name: Deploy pull-update script
       copy:
         src: ./files/pull-update.sh
@@ -156,7 +192,6 @@ Pull Model → runtime (continu)
         group: vagrant
         mode: '0755'
 
-    # systemd service
     - name: Deploy systemd service
       copy:
         src: ./files/iiot-pull.service
@@ -165,17 +200,16 @@ Pull Model → runtime (continu)
     - name: Reload systemd
       command: systemctl daemon-reload
 
-    - name: Enable pull service
+    - name: Enable service
       systemd:
         name: iiot-pull.service
         enabled: yes
 
-    - name: Start pull service
+    - name: Start service
       systemd:
         name: iiot-pull.service
         state: started
 
-    # First deployment (IMPORTANT)
     - name: Initial docker compose up
       command: docker compose up -d --build
       args:
@@ -184,36 +218,36 @@ Pull Model → runtime (continu)
 
 ---
 
-##  À retenir
-
-```text
-Ansible prépare ET lance une première fois
-Puis le Pull Model prend le relais
-```
-
----
-
-#  Partie 3 — Script Pull Model
-
----
-
-## Script corrigé
+# 🔄 Partie 3 — Script Pull Model (optimisé)
 
 ```bash
 #!/bin/bash
 
+set -e
+
 PROJECT_DIR="/home/vagrant/edge-stack"
+
+export PATH=/usr/bin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+export GIT_SSH_COMMAND="ssh -i /home/vagrant/.ssh/id_ed25519 -o StrictHostKeyChecking=no"
 
 echo "📁 Moving to project directory..."
 cd $PROJECT_DIR || exit 1
 
+OLD_COMMIT=$(git rev-parse HEAD)
+
 echo "🔄 Pull latest version..."
-git pull origin main || exit 1
+git pull origin main
 
-echo "🚀 Re-deploying stack..."
-docker compose up -d --build
+NEW_COMMIT=$(git rev-parse HEAD)
 
-echo "🧹 Cleanup (safe)..."
+if [ "$OLD_COMMIT" != "$NEW_COMMIT" ]; then
+    echo "🚀 Changes detected, deploying..."
+    docker compose up -d --build
+else
+    echo "✅ No changes, skipping deploy"
+fi
+
+echo "🧹 Cleanup..."
 docker image prune -f
 
 echo "✅ Update done"
@@ -221,24 +255,26 @@ echo "✅ Update done"
 
 ---
 
-## Explication
+## 🧠 Explication importante
 
-* `cd` → bon contexte
-* `git pull` → récupération des changements
-* `docker compose up` :
+👉 `docker compose up -d` est **idempotent** :
 
-  * recrée uniquement les conteneurs modifiés
-  * évite les doublons
-  * conserve les volumes
-* `prune` → nettoyage des images inutilisées
+```text
+✔ ne recrée les containers QUE si nécessaire
+✔ ne duplique pas
+✔ conserve les volumes
+```
+
+👉 La comparaison des commits :
+
+```text
+✔ évite les rebuild inutiles
+✔ améliore les performances
+```
 
 ---
 
-#  Partie 4 — Service systemd
-
----
-
-## Service
+# ⚙️ Partie 4 — Service systemd
 
 ```ini
 [Unit]
@@ -258,75 +294,76 @@ WantedBy=multi-user.target
 
 ---
 
-## Explication
+## 🧠 Fonctionnement réel
 
-* `Restart=always` → relance après chaque exécution
-* `RestartSec=300` → attente entre deux exécutions
-* `WorkingDirectory` → cohérence du contexte
+```text
+run → script → exit → attente 5 min → restart
+```
 
-👉 Le script est exécuté en boucle contrôlée.
+👉 Ce service :
+
+* ne tourne pas en continu
+* exécute un job périodique
+* remplace un cron avancé
 
 ---
 
-#  Partie 5 — Vérification
+# 🧪 Partie 5 — Vérification
 
 ```bash
 systemctl status iiot-pull.service
+journalctl -u iiot-pull.service -f
 ```
 
 ---
 
-## Attendu
+## ✔ Résultat attendu
 
 * service actif
-* pas d’erreurs
-* logs cohérents
+* exécution toutes les 5 minutes
+* git pull OK
+* docker OK
 
 ---
 
-# ⚠️ Erreurs fréquentes
+# ⚠️ Erreurs rencontrées
 
 ---
 
-## ❌ Garder Docker dans Ansible
+## ❌ SSH GitHub
 
-👉 casse la séparation des rôles
+→ clone impossible
 
----
+## ❌ Permissions root/vagrant
 
-## ❌ Mauvaise structure Git
+→ conflits
 
-👉 repo non exécutable directement
+## ❌ Git ownership
 
----
+→ blocage
 
-## ❌ Script exécuté au mauvais endroit
+## ❌ .env inaccessible
 
-👉 `docker compose` échoue
+→ docker échoue
 
----
+## ❌ rebuild constant
 
-## ❌ Mauvaise gestion des permissions
-
-👉 script non exécuté
+→ inefficacité
 
 ---
 
-#  Bonne pratique
+# 🧠 Bonnes pratiques
 
 ```text
-Ne jamais stocker :
-- .env
-- tokens
-- secrets
-dans le repo Git
+✔ runtime user ≠ root
+✔ secrets hors Git
+✔ docker idempotent
+✔ séparation des responsabilités
 ```
-
-👉 Les secrets doivent rester côté Ansible.
 
 ---
 
-# Conclusion pédagogique
+#  Conclusion
 
 ---
 
@@ -341,30 +378,66 @@ Ansible fait tout
 ## Après
 
 ```text
-Ansible → provisioning initial
-Pull Model → mise à jour continue
+Ansible → provisioning
+Pull Model → runtime
 ```
 
 ---
 
 ## Résultat
 
-* Edge autonome
-* mises à jour automatiques
-* architecture maintenable
-* approche industrielle réaliste
+```text
+✔ Edge autonome
+✔ mise à jour automatique
+✔ architecture propre
+✔ base industrielle
+```
 
 ---
 
 #  Point clé
 
-👉 Le Pull Model :
-
 ```text
-✔ ne remplace pas Ansible
-✔ ne configure pas la machine
-✔ gère uniquement le runtime
+Le Pull Model ne remplace pas Ansible
+Il complète le système
 ```
 
 ---
 
+#  Limite du Pull Model
+
+```text
+Le système vérifie toutes les 5 minutes (polling)
+
+✔ consommation inutile
+✔ latence possible
+```
+
+---
+
+# Transition vers TP13
+
+👉 Prochaine étape :
+
+```text
+Remplacer le polling par un modèle event-driven
+```
+
+---
+
+## 🔁 Évolution
+
+```text
+TP12 → vérifie périodiquement
+TP13 → réagit à un événement (MQTT / AWS IoT Core)
+```
+
+---
+
+## 🎯 Objectif futur
+
+```text
+Edge → connecté au cloud
+→ déclenché en temps réel
+→ architecture IoT industrielle complète
+```
