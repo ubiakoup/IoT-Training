@@ -1,0 +1,11 @@
+[Unit]
+Description=MQTT Listener AWS
+After=network.target
+
+[Service]
+User=vagrant
+ExecStart=/home/vagrant/mqtt_listener.sh
+Restart=always
+
+[Install]
+WantedBy=multi-user.target

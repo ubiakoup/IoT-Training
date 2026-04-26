@@ -11,6 +11,12 @@
         state: present
         update_cache: yes
 
+    - name: Install mosquitto clients
+      ansible.builtin.apt:
+        name: mosquitto-clients
+        state: present
+        update_cache: yes
+
 
   tasks:
 
@@ -24,6 +30,7 @@
       loop:
         - /home/vagrant/edge-stack
         - /home/vagrant/edge-stack/secrets
+        - /home/vagrant/certs
     # -------------------------------
     # Permissions
     # -------------------------------
@@ -41,8 +48,16 @@
         group: 472
         recurse: yes
 
+    - name: Fix MQTT listener permissions
+      file:
+        path: /home/vagrant/certs
+        owner: vagrant
+        group: vagrant
+        mode: '0700'
+
+
     # -------------------------------
-    # Clone project (clé du TP12)
+    # Clone project
     # -------------------------------
 
     - name: Check if repo exists
@@ -62,6 +77,10 @@
         key: "{{ lookup('pipe', 'ssh-keyscan github.com') }}"
         path: /home/vagrant/.ssh/known_hosts
       become_user: vagrant
+
+    - name: Fix git safe directory
+      command: git config --global --add safe.directory /home/vagrant/edge-stack
+      become_user: vagrant    
 
     - name: Fix SSH key permissions
       file:
@@ -87,9 +106,7 @@
         group: vagrant
         recurse: yes
     
-    - name: Fix git safe directory
-      command: git config --global --add safe.directory /home/vagrant/edge-stack
-      become_user: vagrant
+
 
     # -------------------------------
     # Secrets (restent côté Ansible)
@@ -103,6 +120,33 @@
         mode: '0444'
 
     # -------------------------------
+    # Copy AWS certs 
+    # -------------------------------
+    - name: Copy AWS Root CA
+      copy:
+        src: ./files/certs/root-CA.crt
+        dest: /home/vagrant/certs/root-CA.crt
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy AWS device cert
+      copy:
+        src: ./files/certs/vagrant-edge-device.cert.pem
+        dest: /home/vagrant/certs/vagrant-edge-device.cert.pem
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy AWS private key
+      copy:
+        src: ./files/certs/vagrant-edge-device.private.key
+        dest: /home/vagrant/certs/vagrant-edge-device.private.key
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
+
+    # -------------------------------
     # ENV (infra → ansible)
     # -------------------------------
     - name: Deploy .env file
@@ -114,12 +158,20 @@
         mode: '0600'
 
     # -------------------------------
-    # Pull script
+    # deploy script
     # -------------------------------
-    - name: Deploy pull-update script
+    - name:  Deploy deploy script
       copy:
-        src: ./files/pull-update.sh
-        dest: /home/vagrant/pull-update.sh
+        src: ./files/deploy.sh
+        dest: /home/vagrant/deploy.sh
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    - name: deploy mqtt listener script
+      copy:
+        src: ./files/mqtt_listener.sh
+        dest: /home/vagrant/mqtt_listener.sh
         owner: vagrant
         group: vagrant
         mode: '0755'
@@ -129,20 +181,20 @@
     # -------------------------------
     - name: Deploy systemd service
       copy:
-        src: ./files/iiot-pull.service
-        dest: /etc/systemd/system/iiot-pull.service
+        src: ./files/mqtt_listener.service
+        dest: /etc/systemd/system/mqtt_listener.service
 
     - name: Reload systemd
       command: systemctl daemon-reload
 
-    - name: Enable pull service
+    - name: Enable mqtt listener service
       systemd:
-        name: iiot-pull.service
+        name: mqtt_listener.service
         enabled: yes
 
-    - name: Start pull service
+    - name: Start mqtt listener service
       systemd:
-        name: iiot-pull.service
+        name: mqtt_listener.service
         state: started
 
     # -------------------------------
