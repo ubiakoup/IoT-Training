@@ -53,32 +53,83 @@ Un Edge doit pouvoir vivre et évoluer seul
 
 ---
 
-##  Problèmes rencontrés (réels)
+## ⚠️ Problèmes réels rencontrés
 
-Ce TP a exposé des problèmes classiques en production :
+### ❌ Git privé
 
-### ❌ 1. Accès Git privé
+→ accès refusé (SSH)
 
-* SSH non configuré
-* blocage du clone
+### ❌ Ansible (root) vs runtime (vagrant)
 
-### ❌ 2. Ansible (root) vs runtime (vagrant)
+→ conflit de permissions
 
-* fichiers créés en root
-* service exécuté en vagrant
-* conflits de permissions
+### ❌ Git ownership
 
-### ❌ 3. Git “dubious ownership”
+→ blocage sécurité
 
-* sécurité Git moderne
-* repo bloqué
+### ❌ `.env` inaccessible
 
-### ❌ 4. Permissions `.env`
+→ docker échoue
 
-* fichier inaccessible
-* docker compose échoue
+👉 💡 Ce sont des problèmes réels en production
 
-👉 💡 Ces problèmes sont **100% réalistes en entreprise**
+---
+
+# 🔐 Gestion d’un dépôt Git privé (SSH)
+
+---
+
+## Problème
+
+```text
+Permission denied (publickey)
+```
+
+---
+
+## Solution
+
+### 1. Générer une clé SSH
+
+```bash
+ssh-keygen -t ed25519 -C "iot-edge"
+```
+
+---
+
+### 2. Ajouter la clé dans GitHub
+
+```text
+Repo → Settings → Deploy Keys → Add key
+```
+
+👉 ajouter le contenu de:
+
+```text
+~/.ssh/id_ed25519.pub
+```
+
+---
+
+### 3. Configurer Ansible
+
+```yaml
+- name: Clone project repository
+  git:
+    repo: "{{ git_repo_url }}"
+    dest: /home/vagrant/edge-stack
+    version: main
+    key_file: /home/vagrant/.ssh/id_ed25519
+    accept_hostkey: yes
+  become_user: vagrant
+```
+
+👉 Résultat :
+
+```text
+✔ git clone sans interaction
+✔ compatible automation
+```
 
 ---
 
@@ -116,13 +167,17 @@ Ce TP a exposé des problèmes classiques en production :
 
   pre_tasks:
     - name: Install docker compose plugin
-      apt:
+      ansible.builtin.apt:
         name: docker-compose-plugin
         state: present
         update_cache: yes
 
+
   tasks:
 
+    # -------------------------------
+    # Directories
+    # -------------------------------
     - name: Ensure directories exist
       file:
         path: "{{ item }}"
@@ -130,9 +185,9 @@ Ce TP a exposé des problèmes classiques en production :
       loop:
         - /home/vagrant/edge-stack
         - /home/vagrant/edge-stack/secrets
-        - /home/vagrant/data/influxdb
-        - /home/vagrant/data/grafana
-
+    # -------------------------------
+    # Permissions
+    # -------------------------------
     - name: Fix InfluxDB permissions
       file:
         path: /home/vagrant/data/influxdb
@@ -147,18 +202,43 @@ Ce TP a exposé des problèmes classiques en production :
         group: 472
         recurse: yes
 
-    - name: Remove existing edge-stack directory
+    # -------------------------------
+    # Clone project (clé du TP12)
+    # -------------------------------
+
+    - name: Check if repo exists
+      stat:
+        path: /home/vagrant/edge-stack/.git
+        register: git_repo
+
+    - name: Remove invalid directory
       file:
         path: /home/vagrant/edge-stack
         state: absent
+      when: not git_repo.stat.exists
 
-    - name: Clone project repository
+    - name: Add github to known hosts
+      known_hosts:
+        name: github.com
+        key: "{{ lookup('pipe', 'ssh-keyscan github.com') }}"
+        path: /home/vagrant/.ssh/known_hosts
+      become_user: vagrant
+
+    - name: Fix SSH key permissions
+      file:
+        path: /home/vagrant/.ssh/id_ed25519
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
+
+    - name: Clone or update project repository
       git:
         repo: "{{ git_repo_url }}"
         dest: /home/vagrant/edge-stack
         version: main
         key_file: /home/vagrant/.ssh/id_ed25519
         accept_hostkey: yes
+        force: yes
       become_user: vagrant
 
     - name: Ensure ownership is correct
@@ -167,7 +247,14 @@ Ce TP a exposé des problèmes classiques en production :
         owner: vagrant
         group: vagrant
         recurse: yes
+    
+    - name: Fix git safe directory
+      command: git config --global --add safe.directory /home/vagrant/edge-stack
+      become_user: vagrant
 
+    # -------------------------------
+    # Secrets (restent côté Ansible)
+    # -------------------------------
     - name: Copy secrets
       copy:
         src: ./files/secrets/influx_token.txt
@@ -176,6 +263,9 @@ Ce TP a exposé des problèmes classiques en production :
         group: root
         mode: '0444'
 
+    # -------------------------------
+    # ENV (infra → ansible)
+    # -------------------------------
     - name: Deploy .env file
       template:
         src: .env.j2
@@ -184,6 +274,9 @@ Ce TP a exposé des problèmes classiques en production :
         group: vagrant
         mode: '0600'
 
+    # -------------------------------
+    # Pull script
+    # -------------------------------
     - name: Deploy pull-update script
       copy:
         src: ./files/pull-update.sh
@@ -192,6 +285,9 @@ Ce TP a exposé des problèmes classiques en production :
         group: vagrant
         mode: '0755'
 
+    # -------------------------------
+    # systemd
+    # -------------------------------
     - name: Deploy systemd service
       copy:
         src: ./files/iiot-pull.service
@@ -200,22 +296,77 @@ Ce TP a exposé des problèmes classiques en production :
     - name: Reload systemd
       command: systemctl daemon-reload
 
-    - name: Enable service
+    - name: Enable pull service
       systemd:
         name: iiot-pull.service
         enabled: yes
 
-    - name: Start service
+    - name: Start pull service
       systemd:
         name: iiot-pull.service
         state: started
 
+    # -------------------------------
+    # First run ONLY
+    # -------------------------------
     - name: Initial docker compose up
       command: docker compose up -d --build
       args:
         chdir: /home/vagrant/edge-stack
 ```
+---
 
+# Gestion des permissions `.env` (CRITIQUE)
+
+---
+
+## ❌ Mauvaise config
+
+```yaml
+owner: root
+mode: '0400'
+```
+
+👉 erreur :
+
+```text
+permission denied
+```
+
+---
+
+## ✅ Bonne config
+
+```yaml
+owner: vagrant
+mode: '0600'
+```
+
+---
+
+## 🧠 Explication
+
+```text
+0600 = accessible uniquement au propriétaire
+```
+
+👉 garantit :
+
+```text
+✔ sécurité
+✔ fonctionnement docker
+✔ compatibilité systemd
+```
+
+---
+
+##  Règle d’or
+
+```text
+Le fichier doit appartenir au user runtime
+```
+
+---
 ---
 
 # 🔄 Partie 3 — Script Pull Model (optimisé)

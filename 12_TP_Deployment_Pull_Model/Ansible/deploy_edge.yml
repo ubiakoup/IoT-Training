@@ -48,7 +48,7 @@
     - name: Check if repo exists
       stat:
         path: /home/vagrant/edge-stack/.git
-      register: git_repo
+        register: git_repo
 
     - name: Remove invalid directory
       file:

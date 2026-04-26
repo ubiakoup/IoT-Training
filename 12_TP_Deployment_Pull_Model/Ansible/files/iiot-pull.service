@@ -1,0 +1,13 @@
+[Unit]
+Description=IIoT Pull Model Service
+After=network.target
+
+[Service]
+User=vagrant
+WorkingDirectory=/home/vagrant/edge-stack
+ExecStart=/home/vagrant/pull-update.sh
+Restart=always
+RestartSec=300
+
+[Install]
+WantedBy=multi-user.target
