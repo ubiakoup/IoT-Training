@@ -333,7 +333,7 @@ redémarrage Lambda → perte mémoire
 
 ---
 
-# 🧠 Résumé global
+#  Résumé global
 
 ```text
 1. recevoir data
