@@ -1,0 +1,276 @@
+- name: "deploy Edge-Gateway services"
+  hosts: edge
+  become: true
+  vars_files:
+    - vars.yml
+
+  pre_tasks:
+    - name: Install docker compose plugin
+      ansible.builtin.apt:
+        name: docker-compose-plugin
+        state: present
+        update_cache: yes
+
+    - name: Install mosquitto clients
+      ansible.builtin.apt:
+        name: mosquitto-clients
+        state: present
+        update_cache: yes
+
+
+  tasks:
+
+    # -------------------------------
+    # Directories
+    # -------------------------------
+    - name: Ensure directories exist
+      file:
+        path: "{{ item }}"
+        state: directory
+      loop:
+        - /home/vagrant/edge-stack
+        - /home/vagrant/edge-stack/secrets
+        - /home/vagrant/certs
+    # -------------------------------
+    # Permissions
+    # -------------------------------
+    - name: Fix InfluxDB permissions
+      file:
+        path: /home/vagrant/data/influxdb
+        owner: 1000
+        group: 1000
+        recurse: yes
+      when: influxdb_Volume_enabled | default(false)
+
+    - name: Fix Grafana permissions
+      file:
+        path: /home/vagrant/data/grafana
+        owner: 472
+        group: 472
+        recurse: yes
+      when: grafana_volume_enabled | default(false)
+      
+    - name: Fix MQTT listener permissions
+      file:
+        path: /home/vagrant/certs
+        owner: vagrant
+        group: vagrant
+        mode: '0700'
+
+    # -------------------------------
+    # MQTT bridge permissions (FIX)
+    # -------------------------------
+    - name: Ensure MQTT bridge directories exist with correct permissions
+      file:
+        path: "{{ item }}"
+        state: directory
+        owner: 1883
+        group: 1883
+        mode: '0755'
+      loop:
+        - /home/vagrant/mqtt_bridge/certs
+        - /home/vagrant/mqtt_bridge/config
+
+    - name: Fix MQTT bridge cert ownership (recursive)
+      file:
+        path: /home/vagrant/mqtt_bridge/certs
+        owner: 1883
+        group: 1883
+        recurse: yes
+
+    # -------------------------------
+    # Clone project
+    # -------------------------------
+
+    - name: Check if repo exists
+      stat:
+        path: /home/vagrant/edge-stack/.git
+      register: git_repo
+
+    - name: Remove invalid directory
+      file:
+        path: /home/vagrant/edge-stack
+        state: absent
+      when: not git_repo.stat.exists
+
+    - name: Add github to known hosts
+      known_hosts:
+        name: github.com
+        key: "{{ lookup('pipe', 'ssh-keyscan github.com') }}"
+        path: /home/vagrant/.ssh/known_hosts
+      become_user: vagrant
+
+    - name: Fix git safe directory
+      command: git config --global --add safe.directory /home/vagrant/edge-stack
+      become_user: vagrant    
+
+    - name: Fix SSH key permissions
+      file:
+        path: /home/vagrant/.ssh/id_ed25519
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
+
+    - name: Clone or update project repository
+      git:
+        repo: "{{ git_repo_url }}"
+        dest: /home/vagrant/edge-stack
+        version: main
+        key_file: /home/vagrant/.ssh/id_ed25519
+        accept_hostkey: yes
+        force: yes
+      become_user: vagrant
+
+    - name: Ensure ownership is correct
+      file:
+        path: /home/vagrant/edge-stack
+        owner: vagrant
+        group: vagrant
+        recurse: yes
+    
+
+
+    # -------------------------------
+    # Secrets (restent côté Ansible)
+    # -------------------------------
+    - name: Copy secrets
+      copy:
+        src: ./files/secrets/influx_token.txt
+        dest: /home/vagrant/edge-stack/secrets/influx_token.txt
+        owner: root
+        group: root
+        mode: '0444'
+
+    # -------------------------------
+    # Copy AWS certs listener
+    # -------------------------------
+    - name: Copy AWS Root CA mqtt listener
+      copy:
+        src: ./files/certs/root-CA.crt
+        dest: /home/vagrant/certs/root-CA.crt
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy AWS device cert mqtt listener
+      copy:
+        src: ./files/certs/vagrant-edge-device.cert.pem
+        dest: /home/vagrant/certs/vagrant-edge-device.cert.pem
+        owner: vagrant
+        group: vagrant
+        mode: '0644'
+
+    - name: Copy AWS private key  mqtt listener
+      copy:
+        src: ./files/certs/vagrant-edge-device.private.key
+        dest: /home/vagrant/certs/vagrant-edge-device.private.key
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
+
+    # -------------------------------
+    # Copy AWS certs mqtt bridge (FIX)
+    # -------------------------------
+    - name: Copy AWS Root CA mqtt bridge
+      copy:
+        src: ./files/mosquitto/certs/AmazonRootCA1.pem
+        dest: /home/vagrant/mqtt_bridge/certs/AmazonRootCA1.pem
+        mode: '0644'
+
+    - name: Copy AWS device cert mqtt bridge
+      copy:
+        src: ./files/mosquitto/certs/device.pem.crt
+        dest: /home/vagrant/mqtt_bridge/certs/device.pem.crt
+        mode: '0644'
+
+    - name: Copy AWS private key  mqtt bridge
+      copy:
+        src: ./files/mosquitto/certs/private.pem.key
+        dest: /home/vagrant/mqtt_bridge/certs/private.pem.key
+        mode: '0600'
+
+
+    # -------------------------------
+    # ENV (infra → ansible)
+    # -------------------------------
+    - name: Deploy .env file
+      template:
+        src: .env.j2
+        dest: /home/vagrant/edge-stack/.env
+        owner: vagrant
+        group: vagrant
+        mode: '0600'
+
+    # -------------------------------
+    # deploy script
+    # -------------------------------
+    - name:  Deploy deploy script
+      copy:
+        src: ./files/deploy.sh
+        dest: /home/vagrant/deploy.sh
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    - name: deploy mqtt listener script
+      copy:
+        src: ./files/mqtt_listener.sh
+        dest: /home/vagrant/mqtt_listener.sh
+        owner: vagrant
+        group: vagrant
+        mode: '0755'
+
+    # -------------------------------
+    # mqtt bridge config script
+    # -------------------------------
+    - name: Deploy MQTT bridge config script
+      copy:
+        src: ./files/mosquitto/config/mosquitto.conf
+        dest: /home/vagrant/mqtt_bridge/config/mosquitto.conf
+        owner: 1883
+        group: 1883
+        mode: '0644'
+    # -------------------------------
+    # systemd
+    # -------------------------------
+    - name: Deploy systemd service
+      copy:
+        src: ./files/mqtt_listener.service
+        dest: /etc/systemd/system/mqtt_listener.service
+
+    - name: Reload systemd
+      command: systemctl daemon-reload
+
+    - name: Enable mqtt listener service
+      systemd:
+        name: mqtt_listener.service
+        enabled: yes
+
+    - name: Start mqtt listener service
+      systemd:
+        name: mqtt_listener.service
+        state: started
+
+    # -------------------------------
+    # First run ONLY
+    # -------------------------------
+    - name: Stop existing stack
+      become_user: vagrant
+      shell: docker compose down --remove-orphans
+      args:
+        chdir: /home/vagrant/edge-stack
+      ignore_errors: yes
+      
+    - name: Show docker containers
+      become_user: vagrant
+      shell: docker ps
+      register: docker_ps
+
+    - debug:
+        var: docker_ps.stdout
+
+    - name: Initial docker compose up
+      become_user: vagrant
+      shell: docker compose up -d --build
+      args:
+        chdir: /home/vagrant/edge-stack
