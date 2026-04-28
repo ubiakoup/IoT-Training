@@ -1,1 +1,6 @@
 .vagrant/
+venv
+.env.*
+*.vault
+secrets/
+certs/
