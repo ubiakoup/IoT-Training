@@ -225,13 +225,36 @@ docker --version
 - Python disponible
 - Ansible installé
 - dossiers synchronisés opérationnels
+---
+
+# 🧪 Exercice — Setup environnement
+
+## 1. Installation
+- VirtualBox : https://www.virtualbox.org/wiki/Downloads  
+- Vagrant : https://developer.hashicorp.com/vagrant/install  
+- Git : https://git-scm.com/download/win  
 
 ---
 
-## Suite de la formation
+## 2. Récupération du projet
 
-- automatisation avec Ansible
-- simulation industrielle
-- traitement des données IoT
+```bash
+git clone https://github.com/ubiakoup/IoT-Training.git
+cd 01_TP_Stack_Setup/iot_stack_ubuntu22
+````
+---
+## 3. Configuration
 
-Vous venez de mettre en place votre première infrastructure IoT virtualisée.
+* Ouvrir le `Vagrantfile`
+* Adapter les chemins des dossiers synchronisés
+---
+## 4. Déploiement
+```bash id="8fqb3q"
+vagrant up
+```
+---
+
+## 5. Verification
+```bash id="8fqb3q"
+vagrant status
+```
